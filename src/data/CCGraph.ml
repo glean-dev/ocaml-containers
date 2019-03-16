@@ -3,7 +3,7 @@
 
 (** {1 Simple Graph Interface} *)
 
-(** {2 Sequence Helpers} *)
+(** {2 Iter Helpers} *)
 
 type 'a sequence = ('a -> unit) -> unit
 
@@ -290,8 +290,8 @@ module Traverse = struct
   (*$R
     let l =
       let tbl = mk_table ~eq:CCInt.equal 128 in
-      Traverse.Event.dfs ~tbl ~eq:CCInt.equal ~graph:divisors_graph (Sequence.return 345614)
-      |> Sequence.to_list in
+      Traverse.Event.dfs ~tbl ~eq:CCInt.equal ~graph:divisors_graph (Iter.return 345614)
+      |> Iter.to_list in
     let expected =
     [`Enter (345614, 0, []); `Edge (345614, (), 172807, `Forward);
      `Enter (172807, 1, [(345614, (), 172807)]); `Edge (172807, (), 1, `Forward);
