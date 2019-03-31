@@ -11,3 +11,6 @@ setup.*
 .merlin
 *.install
 .ignore
+*.bs.js
+/node_modules
+/lib

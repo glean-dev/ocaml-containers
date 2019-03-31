@@ -1,0 +1,13 @@
+{
+  "name": "@glean-dev/bs-containers",
+  "version": "2.5.0",
+  "description": "OCaml-containers for BuckleScript",
+  "scripts": {
+    "clean": "bsb -clean-world",
+    "build": "bsb -make-world",
+    "watch": "bsb -make-world -w"
+  },
+  "devDependencies": {
+    "bs-platform": "6.0.0-dev.1"
+  }
+}

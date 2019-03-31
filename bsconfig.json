@@ -1,0 +1,15 @@
+{
+  "name": "@glean-dev/bs-containers",
+  "version": "2.5.0",
+  "sources": ["src/core", "src/monomorphic"],
+  "package-specs": {
+    "module": "es6",
+    "in-source": true
+  },
+  "suffix": ".bs.js",
+  "bs-dependencies": [],
+  "warnings": {
+    "number": "-32",
+    "error": "+101"
+  }
+}
