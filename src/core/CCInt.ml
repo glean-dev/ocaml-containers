@@ -196,11 +196,9 @@ let pp fmt = Format.pp_print_int fmt
 let most_significant_bit =
   (-1) lxor ((-1) lsr 1)
 
-let to_string = string_of_int
+let to_string = Belt.Int.toString
 
-let of_string s =
-  try Some (int_of_string s)
-  with _ -> None
+let of_string = Belt.Int.fromString
 
 type output = char -> unit
 

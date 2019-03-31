@@ -43,7 +43,7 @@ and compare a b = match a, b with
 let hash a = Hashtbl.hash a
 
 let of_int x = `Atom (string_of_int x)
-let of_float x = `Atom (string_of_float x)
+let of_float x = `Atom (Belt.Float.toString x)
 let of_bool x = `Atom (string_of_bool x)
 let atom x = `Atom x
 let of_unit = `List []

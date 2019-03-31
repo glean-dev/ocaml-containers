@@ -327,12 +327,12 @@ module Make(E : PARTIAL_ORD) : S with type elt = E.t = struct
 
   let to_list_sorted heap =
     let rec recurse acc h = match take h with
-      | None -> List.rev acc
+      | None -> CCListLabels.rev acc
       | Some (h',x) -> recurse (x::acc) h'
     in
     recurse [] heap
 
-  let add_list h l = List.fold_left add h l
+  let add_list h l = CCListLabels.fold_left ~f:add ~init:h l
 
   let of_list l = add_list empty l
 

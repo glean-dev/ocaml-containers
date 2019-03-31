@@ -12,14 +12,13 @@ type 'a printer = Format.formatter -> 'a -> unit
 
 (** {2 Arrays} *)
 
-(**/**)
-external make_float : int -> float array = "caml_make_float_vect" (* compat *)
-(**/**)
 
 include module type of ArrayLabels
 
 type 'a t = 'a array
 (** The type for arrays *)
+
+val make: int -> 'a  -> 'a array
 
 val empty : 'a t
 (** [empty] is the empty array, physically equal to [||]. *)

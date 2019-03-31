@@ -51,8 +51,8 @@ let opt f = function
   | None -> 42
   | Some x -> combine2 43 (f x)
 
-let list f l = List.fold_left (combine f) 0x42 l
-let array f l = Array.fold_left (combine f) 0x42 l
+let list f l = CCListLabels.fold_left ~f:(combine f) ~init:0x42 l
+let array f l = CCArrayLabels.fold_left ~f:(combine f) ~init:0x42 l
 
 let pair f g (x,y) = combine2 (f x) (g y)
 let triple f g h (x,y,z) = combine2 (combine2 (f x) (g y)) (h z)
@@ -64,12 +64,12 @@ let if_ b then_ else_ h =
 let poly x = Hashtbl.hash x
 
 let array_comm f a =
-  let arr = Array.init (Array.length a) (fun i -> f a.(i)) in
-  Array.sort CCInt.compare arr; (* sort the hashes, so their order does not matter *)
+  let arr = CCArrayLabels.init (CCArrayLabels.length a) ~f:(fun i -> f a.(i)) in
+  CCArrayLabels.sort ~cmp:CCInt.compare arr; (* sort the hashes, so their order does not matter *)
   array (fun h->h) arr
 
 let list_comm f l =
-  let a = Array.of_list l in
+  let a = CCArrayLabels.of_list l in
   array_comm f a
 
 let seq f seq =

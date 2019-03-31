@@ -23,29 +23,29 @@ let (>|=) g f st = map f g st
 let delay f st = f () st
 
 let _choose_array a st =
-  if Array.length a = 0 then invalid_arg "CCRandom.choose_array";
-  a.(Random.State.int st (Array.length a))
+  if CCArrayLabels.length a = 0 then invalid_arg "CCRandom.choose_array";
+  a.(Random.State.int st (CCArrayLabels.length a))
 
 let choose_array a st =
   try Some (_choose_array a st st) with Invalid_argument _ -> None
 
 let choose l =
-  let a = Array.of_list l in
+  let a = CCArrayLabels.of_list l in
   choose_array a
 
 let choose_exn l =
-  let a = Array.of_list l in
+  let a = CCArrayLabels.of_list l in
   fun st -> _choose_array a st st
 
-let choose_return l = _choose_array (Array.of_list l)
+let choose_return l = _choose_array (CCArrayLabels.of_list l)
 
 exception Pick_from_empty
 
 let pick_list l =
-  let n = List.length l in
+  let n = CCListLabels.length l in
   if n=0 then raise Pick_from_empty;
   fun st ->
-    List.nth l (Random.State.int st n)
+    CCListLabels.nth l (Random.State.int st n)
 
 (*$Q
   Q.(list small_int) (fun l -> \
@@ -53,9 +53,9 @@ let pick_list l =
 *)
 
 let pick_array a =
-  let n = Array.length a in
+  let n = CCArrayLabels.length a in
   if n=0 then raise Pick_from_empty;
-  fun st -> Array.get a (Random.State.int st n)
+  fun st -> CCArrayLabels.get a (Random.State.int st n)
 
 let int i st = Random.State.int st i
 
@@ -96,7 +96,7 @@ let sample_without_duplicates (type elt) ~cmp k (rng:elt t) st=
 let sample_without_replacement ~compare k rng =
   sample_without_duplicates ~cmp:compare k rng
 
-let list_seq l st = List.map (fun f -> f st) l
+let list_seq l st = CCListLabels.map ~f:(fun f -> f st) l
 
 let split i st =
   if i < 2 then None
@@ -161,9 +161,9 @@ let _choose_array_call a f st =
   with Invalid_argument _ -> raise Backtrack
 
 let fix ?(sub1=[]) ?(sub2=[]) ?(subn=[]) ~base fuel st =
-  let sub1 = Array.of_list sub1
-  and sub2 = Array.of_list sub2
-  and subn = Array.of_list subn in
+  let sub1 = CCArrayLabels.of_list sub1
+  and sub2 = CCArrayLabels.of_list sub2
+  and subn = CCArrayLabels.of_list subn in
   (* recursive function with fuel *)
   let rec make fuel st =
     if fuel=0 then raise Backtrack
@@ -183,12 +183,12 @@ let fix ?(sub1=[]) ?(sub2=[]) ?(subn=[]) ~base fuel st =
                 match split_list fuel ~len st with
                   | None -> raise Backtrack
                   | Some l' ->
-                    f (fun st -> List.map (fun x -> make x st) l') st
+                    f (fun st -> CCListLabels.map ~f:(fun x -> make x st) l') st
              )
          ; base (* base case then *)
         |]
   and _try_otherwise i a =
-    if i=Array.length a then raise Backtrack
+    if i=CCArrayLabels.length a then raise Backtrack
     else try
         a.(i) st
       with Backtrack ->

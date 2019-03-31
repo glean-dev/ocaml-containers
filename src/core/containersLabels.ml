@@ -28,7 +28,6 @@ module Heap = CCHeap
 module Int = CCInt
 module Int32 = CCInt32
 module Int64 = CCInt64
-module IO = CCIO
 module List = CCListLabels
 module Map = CCMap
 module Nativeint = CCNativeint

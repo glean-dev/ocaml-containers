@@ -93,10 +93,7 @@ let sign_exn (a:float) =
   if is_nan a then raise (TrapNaN "sign_exn")
   else compare a 0.
 
-let round x =
-  let low = floor x in
-  let high = ceil x in
-  if x-.low > high-.x then high else low
+let round x = Js.Math.round x
 
 (*$=
   2. (round 1.6)
@@ -104,10 +101,10 @@ let round x =
   0. (round 0.)
 *)
 
-let to_int (a:float) = Pervasives.int_of_float a
-let of_int (a:int) = Pervasives.float_of_int a
+let to_int (a:float) = Belt.Float.toInt a
+let of_int (a:int) = Belt.Int.toFloat a
 
-let to_string (a:float) = Pervasives.string_of_float a
+let to_string (a:float) = Belt.Float.toString a
 let of_string_exn (a:string) = Pervasives.float_of_string a
 let of_string (a:string) = Pervasives.float_of_string a
 

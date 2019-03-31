@@ -139,7 +139,7 @@ let fold ?idx f acc s =
 let n_chars = fold (fun x _ -> x+1) 0
 
 let to_list ?(idx=0) s : uchar list =
-  fold ~idx (fun acc x -> x :: acc) [] s |> List.rev
+  fold ~idx (fun acc x -> x :: acc) [] s |> CCListLabels.rev
 
 (* Convert a code point (int) into a string;
    There are various equally trivial versions of this around.
@@ -186,7 +186,7 @@ let of_seq seq : t =
 
 let of_list l : t =
   let buf = Buffer.create 32 in
-  List.iter (code_to_string buf) l;
+  CCListLabels.iter ~f:(code_to_string buf) l;
   Buffer.contents buf
 
 let map f s : t =

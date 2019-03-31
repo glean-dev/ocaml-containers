@@ -56,7 +56,7 @@ module Poly = struct
 
   (*$T
     of_list [1,"a"; 2,"b"] |> map_list (fun x y -> string_of_int x ^ y) \
-      |> List.sort Pervasives.compare = ["1a"; "2b"]
+      |> CCListLabels.sort Pervasives.compare = ["1a"; "2b"]
   *)
 
   let to_seq tbl k = Hashtbl.iter (fun key v -> k (key,v)) tbl
@@ -82,7 +82,7 @@ module Poly = struct
 
   let of_list l =
     let tbl = Hashtbl.create 32 in
-    List.iter (fun (k,v) -> Hashtbl.add tbl k v) l;
+    CCListLabels.iter ~f:(fun (k,v) -> Hashtbl.add tbl k v) l;
     tbl
 
   let update tbl ~f ~k =
@@ -342,7 +342,7 @@ module Make(X : Hashtbl.HashedType)
 
   let of_list l =
     let tbl = create 32 in
-    List.iter (fun (k,v) -> add tbl k v) l;
+    CCListLabels.iter ~f:(fun (k,v) -> add tbl k v) l;
     tbl
 
   let pp pp_k pp_v fmt m =

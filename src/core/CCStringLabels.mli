@@ -7,54 +7,6 @@ type 'a gen = unit -> 'a option
 type 'a sequence = ('a -> unit) -> unit
 type 'a klist = unit -> [`Nil | `Cons of 'a * 'a klist]
 
-(** {2 Common Signature} *)
-
-module type S = sig
-  type t
-
-  val length : t -> int
-  (** Return the length (number of characters) of the given string. *)
-
-  val blit : src:t -> src_pos:int -> dst:Bytes.t -> dst_pos:int -> len:int -> unit
-  (** Like {!String.blit}.
-      Compatible with the [-safe-string] option.
-      @raise Invalid_argument if indices are not valid. *)
-
-  (*
-  val blit_immut : t -> int -> t -> int -> int -> string
-  (** Immutable version of {!blit}, returning a new string.
-      [blit a i b j len] is the same as [b], but in which
-      the range [j, ..., j+len] is replaced by [a.[i], ..., a.[i + len]].
-      @raise Invalid_argument if indices are not valid. *)
-     *)
-
-  val fold : f:('a -> char -> 'a) -> init:'a -> t -> 'a
-  (** Fold on chars by increasing index.
-      @since 0.7 *)
-
-  (** {2 Conversions} *)
-
-  val to_gen : t -> char gen
-  (** Return the [gen] of characters contained in the string. *)
-
-  val to_seq : t -> char sequence
-  (** Return the [sequence] of characters contained in the string. *)
-
-  val to_klist : t -> char klist
-  (** Return the [klist] of characters contained in the string. *)
-
-  val to_list : t -> char list
-  (** Return the list of characters contained in the string. *)
-
-  val pp_buf : Buffer.t -> t -> unit
-  (** Renamed from [pp] since 2.0. *)
-
-  val pp : Format.formatter -> t -> unit
-  (** Print the string within quotes.
-
-      Renamed from [print] since 2.0. *)
-end
-
 (** {2 Strings} *)
 
 include module type of struct include StringLabels end
@@ -243,8 +195,6 @@ val for_all : f:(char -> bool) -> string -> bool
 val exists : f:(char -> bool) -> string -> bool
 (** True for some char?
     @since 0.12 *)
-
-include S with type t := string
 
 val drop_while : f:(char -> bool) -> t -> t
 (** [drop_while f s] discards any characters starting from the left,
@@ -466,7 +416,4 @@ module Sub : sig
   (** [get s i] gets the [i]-th element, or fails.
       @raise Invalid_argument if the index is not within [0 ... length - 1].
       @since 1.2 *)
-
-  include S with type t := t
-
 end

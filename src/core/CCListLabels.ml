@@ -1,4 +1,3 @@
-
 (* This file is free software, part of containers. See file "license" for more details. *)
 
 (** {1 Complements to list} *)
@@ -7,72 +6,106 @@
   let lsort l = List.sort Pervasives.compare l
 *)
 
+include ListLabels
+
 type 'a t = 'a list
 
-(* backport new functions from stdlib here *)
+let ( <$> ) f l = Belt.List.map l f
 
-let nth_opt l n =
-  if n<0 then invalid_arg "nth_opt";
-  let rec aux l n = match l, n with
-    | [], _ -> None
-    | x::_, 0 -> Some x
-    | _::l, _ -> aux l (n-1)
-  in
-  aux l n
+let ( >|= ) = Belt.List.map
 
-(*$Q
-  Q.(pair small_nat (list int)) (fun (i,l) -> \
-    nth_opt l i = get_at_idx i l)
-*)
+let append = Belt.List.concat
 
-let rec find_opt p l = match l with
-  | [] -> None
-  | x :: _ when p x -> Some x
-  | _ :: tl -> find_opt p tl
+let combine = Belt.List.zip
 
-let rec compare_lengths l1 l2 = match l1, l2 with
-  | [], [] -> 0
-  | [], _::_ -> -1
-  | _::_, [] -> 1
-  | _::tail1, _::tail2 -> compare_lengths tail1 tail2
+let compare f l1 l2 = Belt.List.cmpU l1 l2 (fun [@bs] x y -> f x y)
 
-(*$Q
-  Q.(pair (list int) (list int)) (fun (l1,l2) -> \
-    CCOrd.equiv (CCList.compare_lengths l1 l2) \
-      (CCInt.compare (length l1)(length l2)))
-*)
+let concat = Belt.List.flatten
 
-let rec compare_length_with l n = match l, n with
-  | _ when n<0 -> 1
-  | [], 0 -> 0
-  | [], _ -> -1
-  | _::tail, _ -> compare_length_with tail (n-1)
+let exists ~f l = Belt.List.someU l (fun [@bs] x -> f x)
 
-(*$Q
-  Q.(pair (list int) small_int) (fun (l,n) -> \
-    CCOrd.equiv (CCList.compare_length_with l n) \
-      (CCInt.compare (length l) n))
-*)
+let exists2 ~f l1 l2 = Belt.List.some2U l1 l2 (fun [@bs] a b -> f a b)
 
-let rec assoc_opt x = function
-  | [] -> None
-  | (y,v) :: _ when Pervasives.(=) x y -> Some v
-  | _ :: tail -> assoc_opt x tail
+let filter ~f l = Belt.List.keep l f
 
-let rec assq_opt x = function
-  | [] -> None
-  | (y,v) :: _ when Pervasives.(==) x y -> Some v
-  | _ :: tail -> assq_opt x tail
+let filter_map ~f l = Belt.List.keepMapU l (fun [@bs] x -> f x)
 
-(* end of backport *)
+let find_opt ~f l = Belt.List.getByU l (fun [@bs] a -> f a)
 
-include List
+let flatten = Belt.List.flatten
+
+let fold_left ~f ~init l =
+  Belt.List.reduceU l init (fun [@bs] acc x -> f acc x)
+
+let fold_left2 ~f ~init l1 l2 =
+  Belt.List.reduce2U l1 l2 init (fun [@bs] a b c -> f a b c)
+
+let fold_right ~f l ~init =
+  Belt.List.reduceReverseU l init (fun [@bs] acc x -> f x acc)
+
+let fold_right2 ~f l1 l2 ~init =
+  Belt.List.reduceReverse2U l1 l2 init (fun [@bs] a b c -> f b c a)
+
+let foldi ~f ~init l =
+  Belt.List.reduceWithIndexU l init (fun [@bs] acc x i -> f acc i x)
+
+let for_all ~f l = Belt.List.everyU l (fun [@bs] x -> f x)
+
+let for_all2 ~f l1 l2 = Belt.List.every2U l1 l2 (fun [@bs] a b -> f a b)
+
+let hd = Belt.List.headExn
+
+let head = Belt.List.head
+
+let head_opt = Belt.List.head
+
+let init len ~f = Belt.List.makeByU len (fun [@bs] x -> f x)
+
+let iter ~f l = Belt.List.forEachU l (fun [@bs] x -> f x)
+
+let iter2 ~f l1 l2 = Belt.List.forEach2U l1 l2 (fun [@bs] a b -> f a b)
+
+let iteri ~f l = Belt.List.forEachWithIndexU l (fun [@bs] i x -> f i x)
+
+let length = Belt.List.length
+
+let map ~f l = Belt.List.map l f
+
+let mapi ~f l = Belt.List.mapWithIndexU l (fun [@bs] i x -> f i x)
+
+let nth = Belt.List.getExn
+
+let nth_opt = Belt.List.get
+
+let partition ~f l = Belt.List.partitionU l (fun [@bs] x -> f x)
+
+let rev = Belt.List.reverse
+
+let rev_append = Belt.List.reverseConcat
+
+let rev_map ~f l = Belt.List.mapReverseU l (fun [@bs] x -> f x)
+
+let rev_map2 ~f l1 l2 = Belt.List.mapReverse2U l1 l2 (fun [@bs] a b -> f a b)
+
+let size = Belt.List.size
+
+let sort ~cmp l = Belt.List.sortU l (fun [@bs] x y -> cmp x y)
+
+let fast_sort = sort
+
+let find_all = filter
+
+let stable_sort = sort
+
+let split = Belt.List.unzip
+
+let tail_opt = Belt.List.tail
+
+let tl = Belt.List.tailExn
 
 let empty = []
 
-let is_empty = function
-  | [] -> true
-  | _::_ -> false
+let is_empty = function [] -> true | _ :: _ -> false
 
 (* max depth for direct recursion *)
 let direct_depth_default_ = 1000
@@ -82,118 +115,63 @@ let tail_map f l =
      @param tail_acc a suffix of the final list; we append tuples' content
      at the front of it *)
   let rec rebuild tail_acc = function
-    | [] -> tail_acc
+    | [] ->
+        tail_acc
     | (y0, y1, y2, y3, y4, y5, y6, y7, y8) :: bs ->
-      rebuild (y0 :: y1 :: y2 :: y3 :: y4 :: y5 :: y6 :: y7 :: y8 :: tail_acc) bs
+        rebuild
+          (y0 :: y1 :: y2 :: y3 :: y4 :: y5 :: y6 :: y7 :: y8 :: tail_acc)
+          bs
   in
   (* Create a compressed reverse-list representation using tuples
      @param tuple_acc a reverse list of chunks mapped with [f] *)
   let rec dive tuple_acc = function
     | x0 :: x1 :: x2 :: x3 :: x4 :: x5 :: x6 :: x7 :: x8 :: xs ->
-      let y0 = f x0 in let y1 = f x1 in let y2 = f x2 in
-      let y3 = f x3 in let y4 = f x4 in let y5 = f x5 in
-      let y6 = f x6 in let y7 = f x7 in let y8 = f x8 in
-      dive ((y0, y1, y2, y3, y4, y5, y6, y7, y8) :: tuple_acc) xs
+        let y0 = f x0 in
+        let y1 = f x1 in
+        let y2 = f x2 in
+        let y3 = f x3 in
+        let y4 = f x4 in
+        let y5 = f x5 in
+        let y6 = f x6 in
+        let y7 = f x7 in
+        let y8 = f x8 in
+        dive ((y0, y1, y2, y3, y4, y5, y6, y7, y8) :: tuple_acc) xs
     | xs ->
-      (* Reverse direction, finishing off with a direct map *)
-      let tail = List.map f xs in
-      rebuild tail tuple_acc
+        (* Reverse direction, finishing off with a direct map *)
+        let tail = map ~f xs in
+        rebuild tail tuple_acc
   in
   dive [] l
-
-let map f l =
-  let rec direct f i l = match l with
-    | [] -> []
-    | [x] -> [f x]
-    | [x1;x2] -> let y1 = f x1 in [y1; f x2]
-    | [x1;x2;x3] -> let y1 = f x1 in let y2 = f x2 in [y1; y2; f x3]
-    | _ when i=0 -> tail_map f l
-    | x1::x2::x3::x4::l' ->
-      let y1 = f x1 in
-      let y2 = f x2 in
-      let y3 = f x3 in
-      let y4 = f x4 in
-      y1 :: y2 :: y3 :: y4 :: direct f (i-1) l'
-  in
-  direct f direct_depth_default_ l
 
 (*$Q
   (Q.list Q.small_int) (fun l -> \
     let f x = x+1 in \
-    List.rev (List.rev_map f l) = map f l)
+    rev (rev_map f l) = map f l)
 *)
-
-let (>|=) l f = map f l
 
 let direct_depth_append_ = 10_000
 
-let cons x l = x::l
+let cons x l = x :: l
 
-let append l1 l2 =
-  let rec direct i l1 l2 = match l1 with
-    | [] -> l2
-    | _ when i=0 -> safe l1 l2
-    | x::l1' -> x :: direct (i-1) l1' l2
-  and safe l1 l2 =
-    List.rev_append (List.rev l1) l2
-  in
-  match l1 with
-    | [] -> l2
-    | [x] -> x::l2
-    | [x;y] -> x::y::l2
-    | _ -> direct direct_depth_append_ l1 l2
-
-let (@) = append
+let ( @ ) = append
 
 (*$T
   [1;2;3] @ [4;5;6] = [1;2;3;4;5;6]
   (1-- 10_000) @ (10_001 -- 20_000) = 1 -- 20_000
 *)
 
-let cons_maybe o l = match o with
-  | Some x -> x :: l
-  | None -> l
+let cons_maybe o l = match o with Some x -> x :: l | None -> l
 
 (*$T
   cons_maybe (Some 1) [2;3] = [1;2;3]
   cons_maybe None [2;3] = [2;3]
 *)
 
-let direct_depth_filter_ = 10_000
-
-let filter p l =
-  let rec direct i p l = match l with
-    | [] -> []
-    | _ when i=0 -> safe p l []
-    | x::l' when not (p x) -> direct i p l'
-    | x::l' -> x :: direct (i-1) p l'
-  and safe p l acc = match l with
-    | [] -> List.rev acc
-    | x::l' when not (p x) -> safe p l' acc
-    | x::l' -> safe p l' (x::acc)
-  in
-  direct direct_depth_filter_ p l
-
 (*$= & ~printer:CCInt.to_string
   500 (filter (fun x->x mod 2 = 0) (1 -- 1000) |> List.length)
   50_000 (filter (fun x->x mod 2 = 0) (1 -- 100_000) |> List.length)
   500_000 (filter (fun x->x mod 2 = 0) (1 -- 1_000_000) |> List.length)
 *)
-
-let fold_right f l acc =
-  let rec direct i f l acc = match l with
-    | [] -> acc
-    | _ when i=0 -> safe f (List.rev l) acc
-    | x::l' ->
-      let acc = direct (i-1) f l' acc in
-      f x acc
-  and safe f l acc = match l with
-    | [] -> acc
-    | x::l' ->
-      let acc = f x acc in
-      safe f l' acc
-  in
-  direct direct_depth_default_ f l acc
 
 (*$T
   fold_right (+) (1 -- 1_000_000) 0 = \
@@ -205,25 +183,27 @@ let fold_right f l acc =
     l = fold_right (fun x y->x::y) l [])
 *)
 
-let rec fold_while f acc = function
-  | [] -> acc
-  | e::l -> let acc, cont = f acc e in
-    match cont with
-      | `Stop -> acc
-      | `Continue -> fold_while f acc l
+let rec fold_while ~f ~init = function
+  | [] ->
+      init
+  | e :: l -> (
+      let acc, cont = f init e in
+      match cont with `Stop -> acc | `Continue -> fold_while ~f ~init l )
 
 (*$T
   fold_while (fun acc b -> if b then acc+1, `Continue else acc, `Stop) 0 [true;true;false;true] = 2
 *)
 
-let fold_map f acc l =
-  let rec aux f acc map_acc l = match l with
-    | [] -> acc, List.rev map_acc
+let fold_map ~f ~init l =
+  let rec aux f acc map_acc l =
+    match l with
+    | [] ->
+        (acc, rev map_acc)
     | x :: l' ->
-      let acc, y = f acc x in
-      aux f acc (y :: map_acc) l'
+        let acc, y = f acc x in
+        aux f acc (y :: map_acc) l'
   in
-  aux f acc [] l
+  aux f init [] l
 
 (*$=
   (6, ["1"; "2"; "3"]) \
@@ -232,18 +212,20 @@ let fold_map f acc l =
 
 (*$Q
   Q.(list int) (fun l -> \
-    fold_map (fun acc x -> x::acc, x) [] l = (List.rev l, l))
+    fold_map (fun acc x -> x::acc, x) [] l = (rev l, l))
 *)
 
-let scan_left f acc l =
-  let rec aux f acc l_acc l = match l with
-    | [] -> List.rev l_acc
+let scan_left ~f ~init l =
+  let rec aux f acc l_acc l =
+    match l with
+    | [] ->
+        rev l_acc
     | x :: tail ->
-      let acc = f acc x in
-      let l_acc = acc :: l_acc in
-      aux f acc l_acc tail
+        let acc = f acc x in
+        let l_acc = acc :: l_acc in
+        aux f acc l_acc tail
   in
-  aux f acc [acc] l
+  aux f init [init] l
 
 (*$= & ~printer:Q.Print.(list int)
   [0;1;3;6] (scan_left (+) 0 [1;2;3])
@@ -255,16 +237,18 @@ let scan_left f acc l =
     List.length l + 1 = List.length (scan_left (+) 0 l))
 *)
 
-let fold_map2 f acc l1 l2 =
-  let rec aux f acc map_acc l1 l2 = match l1, l2 with
-    | [], [] -> acc, List.rev map_acc
-    | [], _
-    | _, [] -> invalid_arg "fold_map2"
+let fold_map2 ~f ~init l1 l2 =
+  let rec aux f acc map_acc l1 l2 =
+    match (l1, l2) with
+    | [], [] ->
+        (acc, rev map_acc)
+    | [], _ | _, [] ->
+        invalid_arg "fold_map2"
     | x1 :: l1', x2 :: l2' ->
-      let acc, y = f acc x1 x2 in
-      aux f acc (y :: map_acc) l1' l2'
+        let acc, y = f acc x1 x2 in
+        aux f acc (y :: map_acc) l1' l2'
   in
-  aux f acc [] l1 l2
+  aux f init [] l1 l2
 
 (*$=
   (310, ["1 10"; "2 0"; "3 100"]) \
@@ -277,14 +261,16 @@ let fold_map2 f acc l1 l2 =
    with Invalid_argument _ -> true)
 *)
 
-let fold_filter_map f acc l =
-  let rec aux f acc map_acc l = match l with
-    | [] -> acc, List.rev map_acc
+let fold_filter_map ~f ~init l =
+  let rec aux f acc map_acc l =
+    match l with
+    | [] ->
+        (acc, rev map_acc)
     | x :: l' ->
-      let acc, y = f acc x in
-      aux f acc (cons_maybe y map_acc) l'
+        let acc, y = f acc x in
+        aux f acc (cons_maybe y map_acc) l'
   in
-  aux f acc [] l
+  aux f init [] l
 
 (*$= & ~printer:Q.Print.(pair int (list int))
   (List.fold_left (+) 0 (1--10), [2;4;6;8;10]) \
@@ -292,14 +278,16 @@ let fold_filter_map f acc l =
     0 (1--10))
 *)
 
-let fold_flat_map f acc l =
-  let rec aux f acc map_acc l = match l with
-    | [] -> acc, List.rev map_acc
+let fold_flat_map ~f ~init l =
+  let rec aux f acc map_acc l =
+    match l with
+    | [] ->
+        (acc, rev map_acc)
     | x :: l' ->
-      let acc, y = f acc x in
-      aux f acc (List.rev_append y map_acc) l'
+        let acc, y = f acc x in
+        aux f acc (rev_append y map_acc) l'
   in
-  aux f acc [] l
+  aux f init [] l
 
 (*$=
   (6, ["1"; "a1"; "2"; "a2"; "3"; "a3"]) \
@@ -310,17 +298,8 @@ let fold_flat_map f acc l =
 (*$Q
   Q.(list int) (fun l -> \
     fold_flat_map (fun acc x -> x::acc, [x;x+10]) [] l = \
-      (List.rev l, flat_map (fun x->[x;x+10]) l) )
+      (rev l, flat_map (fun x->[x;x+10]) l) )
 *)
-
-let init len f =
-  let rec init_rec acc i f =
-    if i=0 then f i :: acc
-    else init_rec (f i :: acc) (i-1) f
-  in
-  if len<0 then invalid_arg "init"
-  else if len=0 then []
-  else init_rec [] (len-1) f
 
 (*$T
   init 0 (fun _ -> 0) = []
@@ -328,52 +307,54 @@ let init len f =
   init 1000 (fun x->x) = 0--999
 *)
 
-let rec compare f l1 l2 = match l1, l2 with
-  | [], [] -> 0
-  | _, [] -> 1
-  | [], _ -> -1
-  | x1::l1', x2::l2' ->
-    let c = f x1 x2 in
-    if c <> 0 then c else compare f l1' l2'
+let compare_length_with l len = ListLabels.compare_length_with l ~len
 
-let rec equal f l1 l2 = match l1, l2 with
-  | [], [] -> true
-  | [], _ | _, [] -> false
-  | x1::l1', x2::l2' -> f x1 x2 && equal f l1' l2'
+let rec equal f l1 l2 =
+  match (l1, l2) with
+  | [], [] ->
+      true
+  | [], _ | _, [] ->
+      false
+  | x1 :: l1', x2 :: l2' ->
+      f x1 x2 && equal f l1' l2'
 
 (*$T
   equal CCInt.equal (1--1_000_000) (1--1_000_000)
 *)
 
-let flat_map f l =
-  let rec aux f l kont = match l with
-    | [] -> kont []
-    | x::l' ->
-      let y = f x in
-      let kont' tail = match y with
-        | [] -> kont tail
-        | [x] -> kont (x :: tail)
-        | [x;y] -> kont (x::y::tail)
-        | l -> kont (append l tail)
-      in
-      aux f l' kont'
+let flat_map ~f l =
+  let rec aux f l kont =
+    match l with
+    | [] ->
+        kont []
+    | x :: l' ->
+        let y = f x in
+        let kont' tail =
+          match y with
+          | [] ->
+              kont tail
+          | [x] ->
+              kont (x :: tail)
+          | [x; y] ->
+              kont (x :: y :: tail)
+          | l ->
+              kont (append l tail)
+        in
+        aux f l' kont'
   in
-  aux f l (fun l->l)
+  aux f l (fun l -> l)
 
 (*$T
   flat_map (fun x -> [x+1; x*2]) [10;100] = [11;20;101;200]
   List.length (flat_map (fun x->[x]) (1--300_000)) = 300_000
 *)
 
-let flatten l = fold_right append l []
-
 (*$T
   flatten [[1]; [2;3;4]; []; []; [5;6]] = 1--6
   flatten (init 300_001 (fun x->[x])) = 0--300_000
 *)
 
-let count f l =
-  fold_left (fun n x -> if f x then succ n else n) 0 l
+let count ~f l = fold_left ~f:(fun n x -> if f x then succ n else n) ~init:0 l
 
 (*$T
   count (fun x -> x mod 2 = 0) [] = 0
@@ -382,12 +363,11 @@ let count f l =
   count (fun x -> x mod 2 = 0) [2; 6; 9; 4] = 3
 *)
 
-let count_true_false p l =
+let count_true_false ~f l =
   fold_left
-    (fun (ok, ko) x ->
-      if p x then ok + 1, ko
-      else ok, ko + 1)
-    (0, 0) l
+    ~f:(fun (ok, ko) x -> if f x then (ok + 1, ko) else (ok, ko + 1))
+    ~init:(0, 0) l
+
 (*$T
   count_true_false (fun x -> x mod 2 = 0) [] = (0, 0)
   count_true_false (fun x -> x mod 2 = 0) [0; 0; 2; 4] = (4, 0)
@@ -395,23 +375,21 @@ let count_true_false p l =
   count_true_false (fun x -> x mod 2 = 0) [2; 6; 9; 4] = (3, 1)
 *)
 
-let product f l1 l2 =
-  flat_map (fun x -> map (fun y -> f x y) l2) l1
+let product ~f l1 l2 = flat_map ~f:(fun x -> map ~f:(fun y -> f x y) l2) l1
 
-let fold_product f acc l1 l2 =
-  List.fold_left
-    (fun acc x1 ->
-       List.fold_left
-         (fun acc x2 -> f acc x1 x2)
-         acc l2)
-    acc l1
+let fold_product ~f ~init l1 l2 =
+  fold_left
+    ~f:(fun acc x1 -> fold_left ~f:(fun acc x2 -> f acc x1 x2) ~init:acc l2)
+    ~init l1
 
 let diagonal l =
-  let rec gen acc l = match l with
-    | [] -> acc
-    | x::l' ->
-      let acc = List.fold_left (fun acc y -> (x,y) :: acc) acc l' in
-      gen acc l'
+  let rec gen acc l =
+    match l with
+    | [] ->
+        acc
+    | x :: l' ->
+        let acc = fold_left ~f:(fun acc y -> (x, y) :: acc) ~init:acc l' in
+        gen acc l'
   in
   gen [] l
 
@@ -422,14 +400,19 @@ let diagonal l =
   diagonal [1;2;3] |> List.sort Pervasives.compare = [1, 2; 1, 3; 2, 3]
 *)
 
-let partition_map f l =
-  let rec iter f l1 l2 l = match l with
-    | [] -> List.rev l1, List.rev l2
-    | x :: tl ->
+let partition_map ~f l =
+  let rec iter f l1 l2 l =
+    match l with
+    | [] ->
+        (rev l1, rev l2)
+    | x :: tl -> (
       match f x with
-        | `Left y -> iter f (y :: l1) l2 tl
-        | `Right y -> iter f l1 (y :: l2) tl
-        | `Drop -> iter f l1 l2 tl
+      | `Left y ->
+          iter f (y :: l1) l2 tl
+      | `Right y ->
+          iter f l1 (y :: l2) tl
+      | `Drop ->
+          iter f l1 l2 tl )
   in
   iter f [] [] l
 
@@ -446,15 +429,24 @@ let partition_map f l =
 *)
 
 let combine l1 l2 =
-  let rec direct i l1 l2 = match l1, l2 with
-    | ([], []) -> []
-    | _ when i=0 -> safe l1 l2 []
-    | (x1::l1', x2::l2') -> (x1, x2) :: direct (i-1) l1' l2'
-    | (_, _) -> invalid_arg "CCList.combine"
-  and safe l1 l2 acc = match l1, l2 with
-    | ([], []) -> List.rev acc
-    | (x1::l1', x2::l2') -> safe l1' l2' @@ (x1, x2) :: acc
-    | (_, _) -> invalid_arg "CCList.combine"
+  let rec direct i l1 l2 =
+    match (l1, l2) with
+    | [], [] ->
+        []
+    | _ when i = 0 ->
+        safe l1 l2 []
+    | x1 :: l1', x2 :: l2' ->
+        (x1, x2) :: direct (i - 1) l1' l2'
+    | _, _ ->
+        invalid_arg "CCList.combine"
+  and safe l1 l2 acc =
+    match (l1, l2) with
+    | [], [] ->
+        rev acc
+    | x1 :: l1', x2 :: l2' ->
+        safe l1' l2' @@ ((x1, x2) :: acc)
+    | _, _ ->
+        invalid_arg "CCList.combine"
   in
   direct direct_depth_default_ l1 l2
 
@@ -475,13 +467,14 @@ let combine l1 l2 =
 let combine_gen l1 l2 =
   let l1 = ref l1 in
   let l2 = ref l2 in
-  fun () -> match !l1, !l2 with
-    | [], _
-    | _, [] -> None
+  fun () ->
+    match (!l1, !l2) with
+    | [], _ | _, [] ->
+        None
     | x1 :: tail1, x2 :: tail2 ->
-      l1 := tail1;
-      l2 := tail2;
-      Some (x1,x2)
+        l1 := tail1 ;
+        l2 := tail2 ;
+        Some (x1, x2)
 
 (*$Q
   Q.(let p = small_list int in pair p p)(fun (l1,l2) -> \
@@ -492,23 +485,30 @@ let combine_gen l1 l2 =
 *)
 
 let split l =
-  let rec direct i l = match l with
-    | [] -> [], []
-    | [x1, y1] -> [x1], [y1]
-    | [x1, y1; x2, y2] -> [x1;x2], [y1;y2]
-    | [x1, y1; x2, y2; x3, y3] -> [x1;x2;x3], [y1;y2;y3]
-    | [x1, y1; x2, y2; x3, y3; x4, y4] -> [x1;x2;x3;x4], [y1;y2;y3;y4]
-    | _ when i=0 -> split_slow [] [] l
+  let rec direct i l =
+    match l with
+    | [] ->
+        ([], [])
+    | [(x1, y1)] ->
+        ([x1], [y1])
+    | [(x1, y1); (x2, y2)] ->
+        ([x1; x2], [y1; y2])
+    | [(x1, y1); (x2, y2); (x3, y3)] ->
+        ([x1; x2; x3], [y1; y2; y3])
+    | [(x1, y1); (x2, y2); (x3, y3); (x4, y4)] ->
+        ([x1; x2; x3; x4], [y1; y2; y3; y4])
+    | _ when i = 0 ->
+        split_slow [] [] l
     | (x1, y1) :: (x2, y2) :: (x3, y3) :: (x4, y4) :: (x5, y5) :: l' ->
-      let rx, ry = direct (i-1) l' in
-      x1 :: x2 :: x3 :: x4 :: x5 :: rx,
-      y1 :: y2 :: y3 :: y4 :: y5 :: ry
-  and split_slow acc1 acc2 l = match l with
-    | [] -> List.rev acc1, List.rev acc2
+        let rx, ry = direct (i - 1) l' in
+        (x1 :: x2 :: x3 :: x4 :: x5 :: rx, y1 :: y2 :: y3 :: y4 :: y5 :: ry)
+  and split_slow acc1 acc2 l =
+    match l with
+    | [] ->
+        (rev acc1, rev acc2)
     | (x1, x2) :: tail ->
-      let acc1 = x1 :: acc1
-      and acc2 = x2 :: acc2 in
-      split_slow acc1 acc2 tail
+        let acc1 = x1 :: acc1 and acc2 = x2 :: acc2 in
+        split_slow acc1 acc2 tail
   in
   direct direct_depth_default_ l
 
@@ -524,25 +524,25 @@ let split l =
 
 let return x = [x]
 
-let (>>=) l f = flat_map f l
-
-let (<$>) = map
+let ( >>= ) l f = flat_map ~f l
 
 let pure = return
 
-let (<*>) funs l = product (fun f x -> f x) funs l
+let ( <*> ) funs l = product ~f:(fun f x -> f x) funs l
 
 let cartesian_product l =
   (* [left]: elements picked so far
      [right]: sets to pick elements from
      [acc]: accumulator for the result, to pass to continuation
      [k]: continuation *)
-  let rec prod_rec left right k acc = match right with
-    | [] -> k acc (List.rev left)
+  let rec prod_rec left right k acc =
+    match right with
+    | [] ->
+        k acc (rev left)
     | l1 :: tail ->
-      List.fold_left
-        (fun acc x -> prod_rec (x::left) tail k acc)
-        acc l1
+        fold_left
+          ~f:(fun acc x -> prod_rec (x :: left) tail k acc)
+          ~init:acc l1
   in
   prod_rec [] l (fun acc l' -> l' :: acc) []
 
@@ -561,8 +561,8 @@ let cartesian_product l =
 *)
 
 (* cartesian product of lists of lists *)
-let map_product_l f l =
-  let l = List.map f l in
+let map_product_l ~f l =
+  let l = map ~f l in
   cartesian_product l
 
 (*$Q
@@ -571,14 +571,17 @@ let map_product_l f l =
 *)
 
 let sorted_merge ~cmp l1 l2 =
-  let rec recurse cmp acc l1 l2 = match l1,l2 with
-    | [], _ -> List.rev_append acc l2
-    | _, [] -> List.rev_append acc l1
-    | x1::l1', x2::l2' ->
-      let c = cmp x1 x2 in
-      if c < 0 then recurse cmp (x1::acc) l1' l2
-      else if c > 0 then recurse cmp (x2::acc) l1 l2'
-      else recurse cmp (x1::x2::acc) l1' l2'
+  let rec recurse cmp acc l1 l2 =
+    match (l1, l2) with
+    | [], _ ->
+        rev_append acc l2
+    | _, [] ->
+        rev_append acc l1
+    | x1 :: l1', x2 :: l2' ->
+        let c = cmp x1 x2 in
+        if c < 0 then recurse cmp (x1 :: acc) l1' l2
+        else if c > 0 then recurse cmp (x2 :: acc) l1 l2'
+        else recurse cmp (x1 :: x2 :: acc) l1' l2'
   in
   recurse cmp [] l1 l2
 
@@ -593,8 +596,6 @@ let sorted_merge ~cmp l1 l2 =
     List.length (sorted_merge ~cmp:CCInt.compare l1 l2) = List.length l1 + List.length l2)
 *)
 
-let sort_uniq ~cmp l = List.sort_uniq cmp l
-
 (*$T
   sort_uniq ~cmp:CCInt.compare [1;2;5;3;6;1;4;2;3] = [1;2;3;4;5;6]
   sort_uniq ~cmp:CCInt.compare [] = []
@@ -603,8 +604,10 @@ let sort_uniq ~cmp l = List.sort_uniq cmp l
 
 let is_sorted ~cmp l =
   let rec aux cmp = function
-    | [] | [_] -> true
-    | x :: ((y :: _) as tail) -> cmp x y <= 0 && aux cmp tail
+    | [] | [_] ->
+        true
+    | x :: (y :: _ as tail) ->
+        cmp x y <= 0 && aux cmp tail
   in
   aux cmp l
 
@@ -613,16 +616,20 @@ let is_sorted ~cmp l =
     is_sorted ~cmp:CCInt.compare (List.sort Pervasives.compare l))
 *)
 
-let sorted_insert ~cmp ?(uniq=false) x l =
-  let rec aux cmp uniq x left l = match l with
-    | [] -> List.rev_append left [x]
-    | y :: tail ->
+let sorted_insert ~cmp ?(uniq = false) x l =
+  let rec aux cmp uniq x left l =
+    match l with
+    | [] ->
+        rev_append left [x]
+    | y :: tail -> (
       match cmp x y with
-        | 0 ->
+      | 0 ->
           let l' = if uniq then l else x :: l in
-          List.rev_append left l'
-        | n when n<0 -> List.rev_append left (x :: l)
-        | _ -> aux cmp uniq x (y::left) tail
+          rev_append left l'
+      | n when n < 0 ->
+          rev_append left (x :: l)
+      | _ ->
+          aux cmp uniq x (y :: left) tail )
   in
   aux cmp uniq x [] l
 
@@ -646,11 +653,16 @@ let sorted_insert ~cmp ?(uniq=false) x l =
 *)
 
 let uniq_succ ~eq l =
-  let rec f acc l = match l with
-    | [] -> List.rev acc
-    | [x] -> List.rev (x::acc)
-    | x :: ((y :: _) as tail) when eq x y -> f acc tail
-    | x :: tail -> f (x::acc) tail
+  let rec f acc l =
+    match l with
+    | [] ->
+        rev acc
+    | [x] ->
+        rev (x :: acc)
+    | x :: (y :: _ as tail) when eq x y ->
+        f acc tail
+    | x :: tail ->
+        f (x :: acc) tail
   in
   f [] l
 
@@ -659,12 +671,18 @@ let uniq_succ ~eq l =
 *)
 
 let group_succ ~eq l =
-  let rec f ~eq acc cur l = match cur, l with
-    | [], [] -> List.rev acc
-    | _::_, [] -> List.rev (List.rev cur :: acc)
-    | [], x::tl -> f ~eq acc [x] tl
-    | (y :: _), x :: tl when eq x y -> f ~eq acc (x::cur) tl
-    | _, x :: tl -> f ~eq (List.rev cur :: acc) [x] tl
+  let rec f ~eq acc cur l =
+    match (cur, l) with
+    | [], [] ->
+        rev acc
+    | _ :: _, [] ->
+        rev (rev cur :: acc)
+    | [], x :: tl ->
+        f ~eq acc [x] tl
+    | y :: _, x :: tl when eq x y ->
+        f ~eq acc (x :: cur) tl
+    | _, x :: tl ->
+        f ~eq (rev cur :: acc) [x] tl
   in
   f ~eq [] [] l
 
@@ -678,21 +696,21 @@ let group_succ ~eq l =
 *)
 
 let sorted_merge_uniq ~cmp l1 l2 =
-  let push ~cmp acc x = match acc with
-    | [] -> [x]
-    | y :: _ when cmp x y > 0 -> x :: acc
-    | _ -> acc (* duplicate, do not yield *)
+  let push ~cmp acc x =
+    match acc with [] -> [x] | y :: _ when cmp x y > 0 -> x :: acc | _ -> acc
+    (* duplicate, do not yield *)
   in
-  let rec recurse ~cmp acc l1 l2 = match l1,l2 with
-    | [], l
-    | l, [] ->
-      let acc = List.fold_left (push ~cmp) acc l in
-      List.rev acc
-    | x1::l1', x2::l2' ->
-      let c = cmp x1 x2 in
-      if c < 0 then recurse ~cmp (push ~cmp acc x1) l1' l2
-      else if c > 0 then recurse ~cmp (push ~cmp acc x2) l1 l2'
-      else recurse ~cmp acc l1 l2' (* drop one of the [x] *)
+  let rec recurse ~cmp acc l1 l2 =
+    match (l1, l2) with
+    | [], l | l, [] ->
+        let acc = fold_left ~f:(push ~cmp) ~init:acc l in
+        rev acc
+    | x1 :: l1', x2 :: l2' ->
+        let c = cmp x1 x2 in
+        if c < 0 then recurse ~cmp (push ~cmp acc x1) l1' l2
+        else if c > 0 then recurse ~cmp (push ~cmp acc x2) l1 l2'
+        else recurse ~cmp acc l1 l2'
+    (* drop one of the [x] *)
   in
   recurse ~cmp [] l1 l2
 
@@ -715,17 +733,22 @@ let sorted_merge_uniq ~cmp l1 l2 =
 *)
 
 let take n l =
-  let rec direct i n l = match l with
-    | [] -> []
-    | _ when i=0 -> safe n [] l
-    | x::l' ->
-      if n > 0
-      then x :: direct (i-1) (n-1) l'
-      else []
-  and safe n acc l = match l with
-    | [] -> List.rev acc
-    | _ when n=0 -> List.rev acc
-    | x::l' -> safe (n-1) (x::acc) l'
+  let rec direct i n l =
+    match l with
+    | [] ->
+        []
+    | _ when i = 0 ->
+        safe n [] l
+    | x :: l' ->
+        if n > 0 then x :: direct (i - 1) (n - 1) l' else []
+  and safe n acc l =
+    match l with
+    | [] ->
+        Belt.List.reverse acc
+    | _ when n = 0 ->
+        Belt.List.reverse acc
+    | x :: l' ->
+        safe (n - 1) (x :: acc) l'
   in
   direct direct_depth_default_ n l
 
@@ -743,21 +766,17 @@ let take n l =
     List.length l1 <= i && ((List.length l1 = i) = (List.length l >= i)))
 *)
 
-let rec drop n l = match l with
-  | [] -> []
-  | _ when n=0 -> l
-  | _::l' -> drop (n-1) l'
+let rec drop n l =
+  match l with [] -> [] | _ when n = 0 -> l | _ :: l' -> drop (n - 1) l'
 
-let hd_tl = function
-  | [] -> failwith "hd_tl"
-  | x :: l -> x, l
+let hd_tl = function [] -> failwith "hd_tl" | x :: l -> (x, l)
 
 (*$T
   try ignore (hd_tl []); false with Failure _ -> true
   hd_tl [1;2;3] = (1, [2;3])
 *)
 
-let take_drop n l = take n l, drop n l
+let take_drop n l = (take n l, drop n l)
 
 (*$Q
   (Q.pair (Q.list Q.small_int) Q.int) (fun (l,i) -> \
@@ -766,27 +785,29 @@ let take_drop n l = take n l, drop n l
     l1 @ l2 = l )
 *)
 
-let sublists_of_len ?(last=fun _ -> None) ?offset n l =
-  if n < 1 then invalid_arg "sublists_of_len: n must be > 0";
-  let offset = match offset with
-    | None -> n
-    | Some o when o < 1 -> invalid_arg "sublists_of_len: offset must be > 0"
-    | Some o -> o
+let sublists_of_len ?(last = fun _ -> None) ?offset ~len:n l =
+  if n < 1 then invalid_arg "sublists_of_len: n must be > 0" ;
+  let offset =
+    match offset with
+    | None ->
+        n
+    | Some o when o < 1 ->
+        invalid_arg "sublists_of_len: offset must be > 0"
+    | Some o ->
+        o
   in
   (* add sub-lists of [l] to [acc] *)
   let rec aux acc l =
     let group = take n l in
     if is_empty group then acc (* this was the last group, we are done *)
-    else if List.length group < n (* last group, with missing elements *)
-    then match last group with
-      | None -> acc
-      | Some group' -> group' :: acc
-    else (
+    else if length group < n (* last group, with missing elements *) then
+      match last group with None -> acc | Some group' -> group' :: acc
+    else
       let l' = drop offset l in
-      aux (group :: acc) l' (* continue *)
-    )
+      aux (group :: acc) l'
+    (* continue *)
   in
-  List.rev (aux [] l)
+  rev (aux [] l)
 
 (*$= sublists_of_len as subs & ~printer:Q.Print.(list (list int))
   [[1;2;3]] (subs 3 [1;2;3;4])
@@ -799,16 +820,25 @@ let sublists_of_len ?(last=fun _ -> None) ?offset n l =
   [[1;2]; [3;4]] (subs 2 [1;2;3;4;5])
 *)
 
-let intersperse x l =
-  let rec aux_direct i x l = match l with
-    | [] -> []
-    | [_] -> l
-    | _ when i=0 -> aux_tailrec [] x l
-    | y :: tail -> y :: x :: aux_direct (i-1) x tail
-  and aux_tailrec acc x l = match l with
-    | [] -> List.rev acc
-    | [y] -> List.rev (y::acc)
-    | y :: tail -> aux_tailrec (x :: y :: acc) x tail
+let intersperse ~x l =
+  let rec aux_direct i x l =
+    match l with
+    | [] ->
+        []
+    | [_] ->
+        l
+    | _ when i = 0 ->
+        aux_tailrec [] x l
+    | y :: tail ->
+        y :: x :: aux_direct (i - 1) x tail
+  and aux_tailrec acc x l =
+    match l with
+    | [] ->
+        rev acc
+    | [y] ->
+        rev (y :: acc)
+    | y :: tail ->
+        aux_tailrec (x :: y :: acc) x tail
   in
   aux_direct 1_000 x l
 
@@ -826,12 +856,16 @@ let intersperse x l =
 *)
 
 let interleave l1 l2 : _ list =
-  let rec aux acc l1 l2 = match l1, l2 with
-    | [], [] -> List.rev acc
-    | [], _ -> List.rev (List.rev_append l2 acc)
-    | _, [] -> List.rev (List.rev_append l1 acc)
+  let rec aux acc l1 l2 =
+    match (l1, l2) with
+    | [], [] ->
+        rev acc
+    | [], _ ->
+        rev (rev_append l2 acc)
+    | _, [] ->
+        rev (rev_append l1 acc)
     | x1 :: tl1, x2 :: tl2 ->
-      aux (x2 :: x1 :: acc) tl1 tl2
+        aux (x2 :: x1 :: acc) tl1 tl2
   in
   aux [] l1 l2
 
@@ -847,16 +881,21 @@ let interleave l1 l2 : _ list =
   Q.(small_list int) (fun l -> l = interleave l [])
 *)
 
-let take_while p l =
-  let rec direct i p l = match l with
-    | [] -> []
-    | _ when i=0 -> safe p [] l
+let take_while ~f:p l =
+  let rec direct i p l =
+    match l with
+    | [] ->
+        []
+    | _ when i = 0 ->
+        safe p [] l
     | x :: l' ->
-      if p x then x :: direct (i-1) p l' else []
-  and safe p acc l = match l with
-    | [] -> List.rev acc
+        if p x then x :: direct (i - 1) p l' else []
+  and safe p acc l =
+    match l with
+    | [] ->
+        rev acc
     | x :: l' ->
-      if p x then safe p (x::acc) l' else List.rev acc
+        if p x then safe p (x :: acc) l' else rev acc
   in
   direct direct_depth_default_ p l
 
@@ -873,29 +912,32 @@ let take_while p l =
     List.for_all (Q.Fn.apply f) l1)
 *)
 
-let rec drop_while p l = match l with
-  | [] -> []
-  | x :: l' -> if p x then drop_while p l' else l
+let rec drop_while ~f l =
+  match l with [] -> [] | x :: l' -> if f x then drop_while ~f l' else l
 
 (*$Q
   Q.(pair (fun1 Observable.int bool) (list small_int)) (fun (f,l) -> \
     take_while (Q.Fn.apply f) l @ drop_while (Q.Fn.apply f) l = l)
 *)
 
-let take_drop_while p l =
-  let rec direct i p l = match l with
-    | [] -> [], []
-    | _ when i=0 -> safe p [] l
+let take_drop_while ~f:p l =
+  let rec direct i p l =
+    match l with
+    | [] ->
+        ([], [])
+    | _ when i = 0 ->
+        safe p [] l
     | x :: tail ->
-      if p x
-      then
-        let l1, l2 = direct (i-1) p tail in
-        x :: l1, l2
-      else [], l
-  and safe p acc l = match l with
-    | [] -> List.rev acc, []
+        if p x then
+          let l1, l2 = direct (i - 1) p tail in
+          (x :: l1, l2)
+        else ([], l)
+  and safe p acc l =
+    match l with
+    | [] ->
+        (rev acc, [])
     | x :: tail ->
-      if p x then safe p (x::acc) tail else List.rev acc, l
+        if p x then safe p (x :: acc) tail else (rev acc, l)
   in
   direct direct_depth_default_ p l
 
@@ -906,16 +948,8 @@ let take_drop_while p l =
 *)
 
 let last n l =
-  let len = List.length l in
-  if len < n then l else drop (len-n) l
-
-let head_opt = function
-  | [] -> None
-  | x::_ -> Some x
-
-let tail_opt = function
-  | [] -> None
-  | _ :: tail -> Some tail
+  let len = length l in
+  if len < n then l else drop (len - n) l
 
 (*$= & ~printer:Q.Print.(option (list int))
   (Some [2;3]) (tail_opt [1;2;3])
@@ -924,9 +958,12 @@ let tail_opt = function
 *)
 
 let rec last_opt = function
-  | [] -> None
-  | [x] -> Some x
-  | _ :: tail -> last_opt tail
+  | [] ->
+      None
+  | [x] ->
+      Some x
+  | _ :: tail ->
+      last_opt tail
 
 (*$= & ~printer:Q.Print.(option int)
   (Some 1) (head_opt [1;2;3])
@@ -939,9 +976,7 @@ let rec last_opt = function
 
 let find_pred = find_opt
 
-let find_pred_exn p l = match find_pred p l with
-  | None -> raise Not_found
-  | Some x -> x
+let find_pred_exn ~f l = ListLabels.find ~f l
 
 (*$T
   find_pred ((=) 4) [1;2;5;4;3;0] = Some 4
@@ -950,29 +985,34 @@ let find_pred_exn p l = match find_pred p l with
   find_pred (fun x -> x < 10) (1 -- 9) = Some 1
 *)
 
-let find_mapi f l =
+let find_mapi ~f l =
   let rec aux f i = function
-    | [] -> None
-    | x::l' ->
-      match f i x with
-        | Some _ as res -> res
-        | None -> aux f (i+1) l'
-  in aux f 0 l
+    | [] ->
+        None
+    | x :: l' -> (
+      match f i x with Some _ as res -> res | None -> aux f (i + 1) l' )
+  in
+  aux f 0 l
 
-let find_map f l = find_mapi (fun _ -> f) l
+let find_map ~f l = find_mapi ~f:(fun _ -> f) l
 
-let find_idx p l = find_mapi (fun i x -> if p x then Some (i, x) else None) l
+let find_idx ~f l =
+  find_mapi ~f:(fun i x -> if f x then Some (i, x) else None) l
 
 (*$T
   find_map (fun x -> if x=3 then Some "a" else None) [1;2;3;4] = Some "a"
   find_map (fun x -> if x=3 then Some "a" else None) [1;2;4;5] = None
 *)
 
-let remove ~eq x l =
-  let rec remove' eq x acc l = match l with
-    | [] -> List.rev acc
-    | y :: tail when eq x y -> remove' eq x acc tail
-    | y :: tail -> remove' eq x (y::acc) tail
+let remove ~eq ~key:x l =
+  let rec remove' eq x acc l =
+    match l with
+    | [] ->
+        rev acc
+    | y :: tail when eq x y ->
+        remove' eq x acc tail
+    | y :: tail ->
+        remove' eq x (y :: acc) tail
   in
   remove' eq x [] l
 
@@ -980,14 +1020,6 @@ let remove ~eq x l =
   remove ~eq:CCInt.equal 1 [2;1;3;3;2;1] = [2;3;3;2]
   remove ~eq:CCInt.equal 10 [1;2;3] = [1;2;3]
 *)
-
-let filter_map f l =
-  let rec recurse acc l = match l with
-    | [] -> List.rev acc
-    | x::l' ->
-      let acc' = match f x with | None -> acc | Some y -> y::acc in
-      recurse acc' l'
-  in recurse [] l
 
 (*$=
   ["2"; "4"] \
@@ -998,17 +1030,15 @@ let filter_map f l =
       [ 1; 2; 3; 4; 5; 6 ])
 *)
 
-let keep_some l = filter_map (fun x->x) l
+let keep_some l = filter_map ~f:(fun x -> x) l
 
 let keep_ok l =
   filter_map
-    (function
-      | Result.Ok x -> Some x
-      | Result.Error _ -> None)
+    ~f:(function Belt.Result.Ok x -> Some x | Belt.Result.Error _ -> None)
     l
 
 let all_some l =
-  try Some (map (function Some x -> x | None -> raise Exit) l)
+  try Some (map ~f:(function Some x -> x | None -> raise Exit) l)
   with Exit -> None
 
 (*$=
@@ -1020,29 +1050,37 @@ let all_some l =
 let all_ok l =
   let err = ref None in
   try
-    Result.Ok
+    Belt.Result.Ok
       (map
-         (function Result.Ok x -> x | Result.Error e -> err := Some e; raise Exit)
+         ~f:(function
+           | Belt.Result.Ok x ->
+               x
+           | Belt.Result.Error e ->
+               err := Some e ;
+               raise Exit )
          l)
-  with Exit ->
-    begin match !err with
-      | None -> assert false
-      | Some e -> Result.Error e
-    end
+  with Exit -> (
+    match !err with None -> assert false | Some e -> Belt.Result.Error e )
 
-let group_by (type k) ?(hash=Hashtbl.hash) ?(eq=Pervasives.(=)) l =
-  let module Tbl = Hashtbl.Make(struct type t = k let equal = eq let hash = hash end) in
+let group_by (type k) ?(hash = Hashtbl.hash) ?(eq = Pervasives.( = )) l =
+  let module Tbl = Hashtbl.Make (struct
+    type t = k
+
+    let equal = eq
+
+    let hash = hash
+  end) in
   (* compute group table *)
   let tbl = Tbl.create 32 in
-  List.iter
-    (fun x ->
-       let l = try Tbl.find tbl x with Not_found -> [] in
-       Tbl.replace tbl x (x::l))
-    l;
-  Tbl.fold (fun _ x acc -> x::acc) tbl []
+  iter
+    ~f:(fun x ->
+      let l = try Tbl.find tbl x with Not_found -> [] in
+      Tbl.replace tbl x (x :: l) )
+    l ;
+  Tbl.fold (fun _ x acc -> x :: acc) tbl []
 
 let join ~join_row s1 s2 : _ t =
-  flat_map (fun a -> filter_map (join_row a) s2) s1
+  flat_map ~f:(fun a -> filter_map ~f:(join_row a) s2) s1
 
 (*$R
   let s1 = (1 -- 3) in
@@ -1054,74 +1092,93 @@ let join ~join_row s1 s2 : _ t =
   OUnit.assert_equal ["1 = 1"; "2 = 2"] s;
 *)
 
-let join_by (type a) ?(eq=Pervasives.(=)) ?(hash=Hashtbl.hash) f1 f2 ~merge c1 c2 =
-  let module Tbl = Hashtbl.Make(struct type t = a let equal = eq let hash = hash end) in
+let join_by (type a) ?(eq = Pervasives.( = )) ?(hash = Hashtbl.hash) f1 f2
+    ~merge c1 c2 =
+  let module Tbl = Hashtbl.Make (struct
+    type t = a
+
+    let equal = eq
+
+    let hash = hash
+  end) in
   let tbl = Tbl.create 32 in
-  List.iter
-    (fun x ->
-       let key = f1 x in
-       Tbl.add tbl key x)
-    c1;
+  iter
+    ~f:(fun x ->
+      let key = f1 x in
+      Tbl.add tbl key x )
+    c1 ;
   let res = ref [] in
-  List.iter
-    (fun y ->
-       let key = f2 y in
-       let xs = Tbl.find_all tbl key in
-       List.iter
-         (fun x -> match merge key x y with
-            | None -> ()
-            | Some z -> res := z :: !res)
-         xs)
-    c2;
+  iter
+    ~f:(fun y ->
+      let key = f2 y in
+      let xs = Tbl.find_all tbl key in
+      iter
+        ~f:(fun x ->
+          match merge key x y with None -> () | Some z -> res := z :: !res )
+        xs )
+    c2 ;
   !res
 
-type ('a, 'b) join_all_cell = {
-  mutable ja_left: 'a list;
-  mutable ja_right: 'b list;
-}
+type ('a, 'b) join_all_cell =
+  {mutable ja_left: 'a list; mutable ja_right: 'b list}
 
-let join_all_by (type a) ?(eq=Pervasives.(=)) ?(hash=Hashtbl.hash) f1 f2 ~merge c1 c2 =
-  let module Tbl = Hashtbl.Make(struct type t = a let equal = eq let hash = hash end) in
+let join_all_by (type a) ?(eq = Pervasives.( = )) ?(hash = Hashtbl.hash) f1 f2
+    ~merge c1 c2 =
+  let module Tbl = Hashtbl.Make (struct
+    type t = a
+
+    let equal = eq
+
+    let hash = hash
+  end) in
   let tbl = Tbl.create 32 in
   (* build the map [key -> cell] *)
-  List.iter
-    (fun x ->
-       let key = f1 x in
-       try
-         let c = Tbl.find tbl key in
-         c.ja_left <- x :: c.ja_left
-       with Not_found ->
-         Tbl.add tbl key {ja_left=[x]; ja_right=[]})
-    c1;
-  List.iter
-    (fun y ->
-       let key = f2 y in
-       try
-         let c = Tbl.find tbl key in
-         c.ja_right <- y :: c.ja_right
-       with Not_found ->
-         Tbl.add tbl key {ja_left=[]; ja_right=[y]})
-    c2;
+  iter
+    ~f:(fun x ->
+      let key = f1 x in
+      try
+        let c = Tbl.find tbl key in
+        c.ja_left <- x :: c.ja_left
+      with Not_found -> Tbl.add tbl key {ja_left= [x]; ja_right= []} )
+    c1 ;
+  iter
+    ~f:(fun y ->
+      let key = f2 y in
+      try
+        let c = Tbl.find tbl key in
+        c.ja_right <- y :: c.ja_right
+      with Not_found -> Tbl.add tbl key {ja_left= []; ja_right= [y]} )
+    c2 ;
   Tbl.fold
-    (fun key cell res -> match merge key cell.ja_left cell.ja_right with
-       | None -> res
-       | Some z -> z :: res)
+    (fun key cell res ->
+      match merge key cell.ja_left cell.ja_right with
+      | None ->
+          res
+      | Some z ->
+          z :: res )
     tbl []
 
-let group_join_by (type a) ?(eq=Pervasives.(=)) ?(hash=Hashtbl.hash) f c1 c2 =
-  let module Tbl = Hashtbl.Make(struct type t = a let equal = eq let hash = hash end) in
+let group_join_by (type a) ?(eq = Pervasives.( = )) ?(hash = Hashtbl.hash) f c1
+    c2 =
+  let module Tbl = Hashtbl.Make (struct
+    type t = a
+
+    let equal = eq
+
+    let hash = hash
+  end) in
   let tbl = Tbl.create 32 in
-  List.iter (fun x -> Tbl.replace tbl x []) c1;
-  List.iter
-    (fun y ->
-       (* project [y] into some element of [c1] *)
-       let key = f y in
-       try
-         let l = Tbl.find tbl key in
-         Tbl.replace tbl key (y :: l)
-       with Not_found -> ())
-    c2;
-  Tbl.fold (fun k v l -> (k,v) :: l) tbl []
+  iter ~f:(fun x -> Tbl.replace tbl x []) c1 ;
+  iter
+    ~f:(fun y ->
+      (* project [y] into some element of [c1] *)
+      let key = f y in
+      try
+        let l = Tbl.find tbl key in
+        Tbl.replace tbl key (y :: l)
+      with Not_found -> () )
+    c2 ;
+  Tbl.fold (fun k v l -> (k, v) :: l) tbl []
 
 (*$=
   ['a', ["abc"; "attic"]; \
@@ -1145,19 +1202,22 @@ let group_join_by (type a) ?(eq=Pervasives.(=)) ?(hash=Hashtbl.hash) f c1 c2 =
 *)
 
 let mem ~eq x l =
-  let rec search eq x l = match l with
-    | [] -> false
-    | y::l' -> eq x y || search eq x l'
-  in search eq x l
+  let rec search eq x l =
+    match l with [] -> false | y :: l' -> eq x y || search eq x l'
+  in
+  search eq x l
 
-let add_nodup ~eq x l =
-  if mem ~eq x l then l else x::l
+let add_nodup ~eq x l = if mem ~eq x l then l else x :: l
 
 let remove_one ~eq x l =
-  let rec remove_one ~eq x acc l = match l with
-    | [] -> assert false
-    | y :: tl when eq x y -> List.rev_append acc tl
-    | y :: tl -> remove_one ~eq x (y::acc) tl
+  let rec remove_one ~eq x acc l =
+    match l with
+    | [] ->
+        assert false
+    | y :: tl when eq x y ->
+        rev_append acc tl
+    | y :: tl ->
+        remove_one ~eq x (y :: acc) tl
   in
   if mem ~eq x l then remove_one ~eq x [] l else l
 
@@ -1170,17 +1230,19 @@ let remove_one ~eq x l =
     not (mem ~eq:CCInt.equal x l) || List.length (remove_one ~eq:CCInt.equal x l) = List.length l - 1)
 *)
 
-let subset ~eq l1 l2 =
-  List.for_all
-    (fun t -> mem ~eq t l2)
-    l1
+let subset ~eq l1 l2 = for_all ~f:(fun t -> mem ~eq t l2) l1
 
 let uniq ~eq l =
-  let rec uniq eq acc l = match l with
-    | [] -> List.rev acc
-    | x::xs when List.exists (eq x) xs -> uniq eq acc xs
-    | x::xs -> uniq eq (x::acc) xs
-  in uniq eq [] l
+  let rec uniq eq acc l =
+    match l with
+    | [] ->
+        rev acc
+    | x :: xs when exists ~f:(eq x) xs ->
+        uniq eq acc xs
+    | x :: xs ->
+        uniq eq (x :: acc) xs
+  in
+  uniq eq [] l
 
 (*$T
   uniq ~eq:CCInt.equal [1;2;3] |> List.sort Pervasives.compare = [1;2;3]
@@ -1193,87 +1255,81 @@ let uniq ~eq l =
 *)
 
 let union ~eq l1 l2 =
-  let rec union eq acc l1 l2 = match l1 with
-    | [] -> List.rev_append acc l2
-    | x::xs when mem ~eq x l2 -> union eq acc xs l2
-    | x::xs -> union eq (x::acc) xs l2
-  in union eq [] l1 l2
+  let rec union eq acc l1 l2 =
+    match l1 with
+    | [] ->
+        rev_append acc l2
+    | x :: xs when mem ~eq x l2 ->
+        union eq acc xs l2
+    | x :: xs ->
+        union eq (x :: acc) xs l2
+  in
+  union eq [] l1 l2
 
 (*$T
   union ~eq:CCInt.equal [1;2;4] [2;3;4;5] = [1;2;3;4;5]
 *)
 
 let inter ~eq l1 l2 =
-  let rec inter eq acc l1 l2 = match l1 with
-    | [] -> List.rev acc
-    | x::xs when mem ~eq x l2 -> inter eq (x::acc) xs l2
-    | _::xs -> inter eq acc xs l2
-  in inter eq [] l1 l2
+  let rec inter eq acc l1 l2 =
+    match l1 with
+    | [] ->
+        rev acc
+    | x :: xs when mem ~eq x l2 ->
+        inter eq (x :: acc) xs l2
+    | _ :: xs ->
+        inter eq acc xs l2
+  in
+  inter eq [] l1 l2
 
 (*$T
   inter ~eq:CCInt.equal [1;2;4] [2;3;4;5] = [2;4]
 *)
 
-let mapi f l =
-  let r = ref 0 in
-  map
-    (fun x ->
-       let y = f !r x in
-       incr r; y
-    ) l
-
 (*$T
   mapi (fun i x -> i*x) [10;10;10] = [0;10;20]
 *)
 
-let iteri f l =
-  let rec aux f i l = match l with
-    | [] -> ()
-    | x::l' -> f i x; aux f (i+1) l'
-  in aux f 0 l
-
-let iteri2 f l1 l2 =
-  let rec aux f i l1 l2 = match l1, l2 with
-    | [], [] -> ()
-    | [], _
-    | _, [] -> invalid_arg "iteri2"
-    | x1::l1', x2::l2' ->
-      f i x1 x2;
-      aux f (i+1) l1' l2'
-  in aux f 0 l1 l2
-
-let foldi f acc l =
-  let rec foldi f acc i l = match l with
-    | [] -> acc
-    | x::l' ->
-      let acc = f acc i x in
-      foldi f acc (i+1) l'
+let iteri2 ~f l1 l2 =
+  let rec aux f i l1 l2 =
+    match (l1, l2) with
+    | [], [] ->
+        ()
+    | [], _ | _, [] ->
+        invalid_arg "iteri2"
+    | x1 :: l1', x2 :: l2' ->
+        f i x1 x2 ;
+        aux f (i + 1) l1' l2'
   in
-  foldi f acc 0 l
+  aux f 0 l1 l2
 
-let foldi2 f acc l1 l2 =
-  let rec foldi f acc i l1 l2 = match l1, l2 with
-    | [], [] -> acc
-    | [], _
-    | _, [] -> invalid_arg "foldi2"
-    | x1::l1', x2::l2' ->
-      let acc = f acc i x1 x2 in
-      foldi f acc (i+1) l1' l2'
+let foldi2 ~f ~init:acc l1 l2 =
+  let rec foldi f acc i l1 l2 =
+    match (l1, l2) with
+    | [], [] ->
+        acc
+    | [], _ | _, [] ->
+        invalid_arg "foldi2"
+    | x1 :: l1', x2 :: l2' ->
+        let acc = f acc i x1 x2 in
+        foldi f acc (i + 1) l1' l2'
   in
   foldi f acc 0 l1 l2
 
-let rec get_at_idx_rec i l = match l with
-  | [] -> raise Not_found
-  | x::_ when i=0 -> x
-  | _::l' -> get_at_idx_rec (i-1) l'
+let rec get_at_idx_rec i l =
+  match l with
+  | [] ->
+      raise Not_found
+  | x :: _ when i = 0 ->
+      x
+  | _ :: l' ->
+      get_at_idx_rec (i - 1) l'
 
 let get_at_idx_exn i l =
-  let i = if i<0 then length l + i else i in
+  let i = if i < 0 then length l + i else i in
   get_at_idx_rec i l
 
-let get_at_idx i l =
-  try Some (get_at_idx_exn i l)
-  with Not_found -> None
+let get_at_idx i l = try Some (get_at_idx_exn i l) with Not_found -> None
 
 (*$T
   get_at_idx 0 (range 0 10) = Some 0
@@ -1285,13 +1341,16 @@ let get_at_idx i l =
 *)
 
 let set_at_idx i x l0 =
-  let rec aux l acc i = match l with
-    | [] -> l0
-    | _::l' when i=0 -> List.rev_append acc (x::l')
-    | y::l' ->
-      aux l' (y::acc) (i-1)
+  let rec aux l acc i =
+    match l with
+    | [] ->
+        l0
+    | _ :: l' when i = 0 ->
+        rev_append acc (x :: l')
+    | y :: l' ->
+        aux l' (y :: acc) (i - 1)
   in
-  let i = if i<0 then length l0 + i else i in
+  let i = if i < 0 then length l0 + i else i in
   aux l0 [] i
 
 (*$T
@@ -1302,13 +1361,16 @@ let set_at_idx i x l0 =
 *)
 
 let insert_at_idx i x l =
-  let rec aux l acc i x = match l with
-    | [] -> List.rev_append acc [x]
-    | y::l' when i=0 -> List.rev_append acc (x::y::l')
-    | y::l' ->
-      aux l' (y::acc) (i-1) x
+  let rec aux l acc i x =
+    match l with
+    | [] ->
+        rev_append acc [x]
+    | y :: l' when i = 0 ->
+        rev_append acc (x :: y :: l')
+    | y :: l' ->
+        aux l' (y :: acc) (i - 1) x
   in
-  let i = if i<0 then length l + i else i in
+  let i = if i < 0 then length l + i else i in
   aux l [] i x
 
 (*$T
@@ -1319,13 +1381,16 @@ let insert_at_idx i x l =
 *)
 
 let remove_at_idx i l0 =
-  let rec aux l acc i = match l with
-    | [] -> l0
-    | _::l' when i=0 -> List.rev_append acc l'
-    | y::l' ->
-      aux l' (y::acc) (i-1)
+  let rec aux l acc i =
+    match l with
+    | [] ->
+        l0
+    | _ :: l' when i = 0 ->
+        rev_append acc l'
+    | y :: l' ->
+        aux l' (y :: acc) (i - 1)
   in
-  let i = if i<0 then length l0 + i else i in
+  let i = if i < 0 then length l0 + i else i in
   aux l0 [] i
 
 (*$T
@@ -1340,14 +1405,11 @@ let remove_at_idx i l0 =
 
 let range_by ~step i j =
   let rec range i j acc =
-    if i=j then i::acc else range i (j-step) (j::acc)
+    if i = j then i :: acc else range i (j - step) (j :: acc)
   in
-  if step = 0 then
-    raise (Invalid_argument "CCList.range_by")
-  else if (if step > 0 then i>j else i<j) then
-    []
-  else
-    range i ((j-i)/step*step + i)  []
+  if step = 0 then raise (Invalid_argument "CCList.range_by")
+  else if if step > 0 then i > j else i < j then []
+  else range i (((j - i) / step * step) + i) []
 
 (* note: the last test checks that no error occurs due to overflows. *)
 (*$T
@@ -1371,12 +1433,9 @@ let range_by ~step i j =
 *)
 
 let range i j =
-  let rec up i j acc =
-    if i=j then i::acc else up i (j-1) (j::acc)
-  and down i j acc =
-    if i=j then i::acc else down i (j+1) (j::acc)
-  in
-  if i<=j then up i j [] else down i j []
+  let rec up i j acc = if i = j then i :: acc else up i (j - 1) (j :: acc)
+  and down i j acc = if i = j then i :: acc else down i (j + 1) (j :: acc) in
+  if i <= j then up i j [] else down i j []
 
 (*$T
   range 0 5 = [0;1;2;3;4;5]
@@ -1385,9 +1444,7 @@ let range i j =
 *)
 
 let range' i j =
-  if i<j then range i (j-1)
-  else if i=j then []
-  else range i (j+1)
+  if i < j then range i (j - 1) else if i = j then [] else range i (j + 1)
 
 (*$T
   range' 0 0 = []
@@ -1395,9 +1452,9 @@ let range' i j =
   range' 5 2 = [5;4;3]
 *)
 
-let (--) = range
+let ( -- ) = range
 
-let (--^) = range'
+let ( --^ ) = range'
 
 (*$T
   append (range 0 100) (range 101 1000) = range 0 1000
@@ -1410,11 +1467,8 @@ let (--^) = range'
 *)
 
 let replicate i x =
-  let rec aux acc i =
-    if i = 0 then acc
-    else aux (x::acc) (i-1)
-  in aux [] i
-
+  let rec aux acc i = if i = 0 then acc else aux (x :: acc) (i - 1) in
+  aux [] i
 
 (*$T
   repeat 2 [1;2;3] = [1;2;3;1;2;3]
@@ -1428,23 +1482,17 @@ let replicate i x =
 
 let repeat i l =
   let rec aux acc i =
-    if i = 0 then List.rev acc
-    else aux (List.rev_append l acc) (i-1)
-  in aux [] i
+    if i = 0 then rev acc else aux (rev_append l acc) (i - 1)
+  in
+  aux [] i
 
 module Assoc = struct
-  type ('a, 'b) t = ('a*'b) list
+  type ('a, 'b) t = ('a * 'b) list
 
-  let rec search_exn eq l x = match l with
-    | [] -> raise Not_found
-    | (y,z)::l' ->
-      if eq x y then z else search_exn eq l' x
+  let get ~eq x l = Belt.List.getAssocU l x (fun [@bs] a b -> eq a b)
 
-  let get_exn ~eq x l = search_exn eq l x
-
-  let get ~eq x l =
-    try Some (search_exn eq l x)
-    with Not_found -> None
+  let get_exn ~eq x l =
+    match get ~eq x l with Some x -> x | None -> raise Not_found
 
   (*$T
     Assoc.get ~eq:CCInt.equal 1 [1, "1"; 2, "2"] = Some "1"
@@ -1456,16 +1504,15 @@ module Assoc = struct
   (* search for a binding for [x] in [l], and calls [f x (Some v) rest]
      or [f x None rest] depending on whether it finds the binding.
      [rest] is the list of the other bindings *)
-  let rec search_set eq acc l x ~f = match l with
-    | [] -> f x None acc
-    | (x',y')::l' ->
-      if eq x x'
-      then f x (Some y') (List.rev_append acc l')
-      else search_set eq ((x',y')::acc) l' x ~f
+  let rec search_set eq acc l x ~f =
+    match l with
+    | [] ->
+        f x None acc
+    | (x', y') :: l' ->
+        if eq x x' then f x (Some y') (rev_append acc l')
+        else search_set eq ((x', y') :: acc) l' x ~f
 
-  let set ~eq x y l =
-    search_set eq [] l x
-      ~f:(fun x _ l -> (x,y)::l)
+  let set ~eq x y l = Belt.List.setAssocU l x y (fun [@bs] a b -> eq a b)
 
   (*$T
     Assoc.set ~eq:CCInt.equal 2 "two" [1,"1"; 2, "2"] |> List.sort Pervasives.compare \
@@ -1474,21 +1521,20 @@ module Assoc = struct
       = [1, "1"; 2, "2"; 3, "3"]
   *)
 
-  let mem ~eq x l =
-    try ignore (search_exn eq l x); true
-    with Not_found -> false
+  let mem ~eq x l = Belt.List.hasAssocU l x (fun [@bs] a b -> eq a b)
 
   (*$T
     Assoc.mem ~eq:CCInt.equal 1 [1,"1"; 2,"2"; 3, "3"]
     not (Assoc.mem ~eq:CCInt.equal 4 [1,"1"; 2,"2"; 3, "3"])
   *)
-
-  let update ~eq f x l =
-    search_set eq [] l x
-      ~f:(fun x opt_y rest ->
+  let update ~eq ~f x l =
+    search_set eq [] l x ~f:(fun x opt_y rest ->
         match f opt_y with
-          | None -> rest (* drop *)
-          | Some y' -> (x,y') :: rest)
+        | None ->
+            rest (* drop *)
+        | Some y' ->
+            (x, y') :: rest )
+
   (*$=
     [1,"1"; 2,"22"] \
       (Assoc.update ~eq:CCInt.equal \
@@ -1501,11 +1547,7 @@ module Assoc = struct
         (function None -> Some "3" | _ -> assert false) 3 [1,"1"; 2,"2"] |> lsort)
   *)
 
-  let remove ~eq x l =
-    search_set eq [] l x
-      ~f:(fun _ opt_y rest -> match opt_y with
-        | None -> l  (* keep as is *)
-        | Some _ -> rest)
+  let remove ~eq x l = Belt.List.removeAssocU l x (fun [@bs] a b -> eq a b)
 
   (*$=
     [1,"1"] \
@@ -1518,8 +1560,11 @@ module Assoc = struct
 end
 
 let assoc = Assoc.get_exn
+
 let assoc_opt = Assoc.get
+
 let mem_assoc = Assoc.mem
+
 let remove_assoc = Assoc.remove
 
 (** {2 References on Lists} *)
@@ -1529,26 +1574,29 @@ module Ref = struct
 
   let push l x = l := x :: !l
 
-  let pop l = match !l with
-    | [] -> None
-    | x::tail ->
-      l := tail;
-      Some x
+  let pop l =
+    match !l with
+    | [] ->
+        None
+    | x :: tail ->
+        l := tail ;
+        Some x
 
-  let pop_exn l = match !l with
-    | [] -> failwith "CCList.Ref.pop_exn"
-    | x::tail ->
-      l := tail;
-      x
+  let pop_exn l =
+    match !l with
+    | [] ->
+        failwith "CCList.Ref.pop_exn"
+    | x :: tail ->
+        l := tail ;
+        x
 
-  let create() = ref []
+  let create () = ref []
 
   let clear l = l := []
 
   let lift f l = f !l
 
-  let push_list r l =
-    r := List.rev_append l !r
+  let push_list r l = r := rev_append l !r
 
   (*$T
     let l = Ref.create() in Ref.push l 1; Ref.push_list l [2;3]; !l = [3;2;1]
@@ -1558,50 +1606,57 @@ end
 (** {2 Monadic Operations} *)
 module type MONAD = sig
   type 'a t
+
   val return : 'a -> 'a t
-  val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
+
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
 end
 
-module Traverse(M : MONAD) = struct
-  open M
+module Traverse (M : MONAD) = struct
+  open! M
 
-  let map_m f l =
-    let rec aux f acc l = match l with
-      | [] -> return (List.rev acc)
-      | x::tail ->
-        f x >>= fun x' ->
-        aux f (x' :: acc) tail
-    in aux f [] l
+  let map_m ~f l =
+    let rec aux f acc l =
+      match l with
+      | [] ->
+          return (rev acc)
+      | x :: tail ->
+          f x >>= fun x' -> aux f (x' :: acc) tail
+    in
+    aux f [] l
 
-  let rec map_m_par f l = match l with
-    | [] -> M.return []
-    | x::tl ->
-      let x' = f x in
-      let tl' = map_m_par f tl in
-      x' >>= fun x' ->
-      tl' >>= fun tl' ->
-      M.return (x'::tl')
+  let rec map_m_par ~f l =
+    match l with
+    | [] ->
+        M.return []
+    | x :: tl ->
+        let x' = f x in
+        let tl' = map_m_par ~f tl in
+        x' >>= fun x' -> tl' >>= fun tl' -> M.return (x' :: tl')
 
-  let sequence_m l = map_m (fun x->x) l
+  let sequence_m l = map_m ~f:(fun x -> x) l
 
-  let rec fold_m f acc l = match l with
-    | [] -> return acc
+  let rec fold_m ~f ~init l =
+    match l with
+    | [] ->
+        return init
     | x :: l' ->
-      f acc x
-      >>= fun acc' ->
-      fold_m f acc' l'
+        f init x >>= fun acc' -> fold_m ~f ~init:acc' l'
 end
 
 (** {2 Conversions} *)
 
 type 'a sequence = ('a -> unit) -> unit
+
 type 'a gen = unit -> 'a option
+
 type 'a klist = unit -> [`Nil | `Cons of 'a * 'a klist]
+
 type 'a printer = Format.formatter -> 'a -> unit
+
 type 'a random_gen = Random.State.t -> 'a
 
-let random_len len g st =
-  init len (fun _ -> g st)
+let random_len len g st = init len ~f:(fun _ -> g st)
 
 (*$T
   random_len 10 CCInt.random_small (Random.State.make [||]) |> List.length = 10
@@ -1615,21 +1670,24 @@ let random_non_empty g st =
   let len = 1 + Random.State.int st 1_000 in
   random_len len g st
 
-let random_choose l = match l with
-  | [] -> raise Not_found
-  | _::_ ->
-    let len = List.length l in
-    fun st ->
-      let i = Random.State.int st len in
-      List.nth l i
+let random_choose l =
+  match l with
+  | [] ->
+      raise Not_found
+  | _ :: _ ->
+      let len = length l in
+      fun st ->
+        let i = Random.State.int st len in
+        nth l i
 
-let random_sequence l st = map (fun g -> g st) l
+let random_sequence l st = map ~f:(fun g -> g st) l
 
-let to_seq l k = List.iter k l
+let to_seq l k = iter ~f:k l
+
 let of_seq seq =
   let l = ref [] in
-  seq (fun x -> l := x :: !l);
-  List.rev !l
+  seq (fun x -> l := x :: !l) ;
+  rev !l
 
 (*$Q
   Q.(list int) (fun l -> of_seq (to_seq l) = l)
@@ -1639,19 +1697,18 @@ let to_gen l =
   let l = ref l in
   fun () ->
     match !l with
-      | [] -> None
-      | x::l' ->
-        l := l'; Some x
+    | [] ->
+        None
+    | x :: l' ->
+        l := l' ;
+        Some x
 
 let of_gen g =
   let rec direct i g =
     if i = 0 then safe [] g
-    else match g () with
-      | None -> []
-      | Some x -> x :: direct (i-1) g
-  and safe acc g = match g () with
-    | None -> List.rev acc
-    | Some x -> safe (x::acc) g
+    else match g () with None -> [] | Some x -> x :: direct (i - 1) g
+  and safe acc g =
+    match g () with None -> rev acc | Some x -> safe (x :: acc) g
   in
   direct direct_depth_default_ g
 
@@ -1660,47 +1717,53 @@ let of_gen g =
 *)
 
 let to_klist l =
-  let rec make l () = match l with
-    | [] -> `Nil
-    | x::l' -> `Cons (x, make l')
-  in make l
+  let rec make l () =
+    match l with [] -> `Nil | x :: l' -> `Cons (x, make l')
+  in
+  make l
 
 let of_klist l =
   let rec direct i g =
     if i = 0 then safe [] g
-    else match l () with
-      | `Nil -> []
-      | `Cons (x,l') -> x :: direct (i-1) l'
-  and safe acc l = match l () with
-    | `Nil -> List.rev acc
-    | `Cons (x,l') -> safe (x::acc) l'
+    else match l () with `Nil -> [] | `Cons (x, l') -> x :: direct (i - 1) l'
+  and safe acc l =
+    match l () with `Nil -> rev acc | `Cons (x, l') -> safe (x :: acc) l'
   in
   direct direct_depth_default_ l
 
 module Infix = struct
-  let (>|=) = (>|=)
-  let (@) = (@)
-  let (<*>) = (<*>)
-  let (<$>) = (<$>)
-  let (>>=) = (>>=)
-  let (--) = (--)
-  let (--^) = (--^)
+  let ( >|= ) = ( >|= )
+
+  let ( @ ) = ( @ )
+
+  let ( <*> ) = ( <*> )
+
+  let ( <$> ) = ( <$> )
+
+  let ( >>= ) = ( >>= )
+
+  let ( -- ) = ( -- )
+
+  let ( --^ ) = ( --^ )
 end
 
 (** {2 IO} *)
 
-let pp ?(start="") ?(stop="") ?(sep=", ") pp_item fmt l =
-  let rec print fmt l = match l with
-    | x::((_::_) as l) ->
-      pp_item fmt x;
-      Format.pp_print_string fmt sep;
-      Format.pp_print_cut fmt ();
-      print fmt l
-    | x::[] -> pp_item fmt x
-    | [] -> ()
+let pp ?(start = "") ?(stop = "") ?(sep = ", ") pp_item fmt l =
+  let rec print fmt l =
+    match l with
+    | x :: (_ :: _ as l) ->
+        pp_item fmt x ;
+        Format.pp_print_string fmt sep ;
+        Format.pp_print_cut fmt () ;
+        print fmt l
+    | [x] ->
+        pp_item fmt x
+    | [] ->
+        ()
   in
-  Format.pp_print_string fmt start;
-  print fmt l;
+  Format.pp_print_string fmt start ;
+  print fmt l ;
   Format.pp_print_string fmt stop
 
 (*$= & ~printer:(fun s->s)
@@ -1709,4 +1772,3 @@ let pp ?(start="") ?(stop="") ?(sep=", ") pp_item fmt l =
         (CCFormat.hbox(CCList.pp ~start:"[" ~stop:"]" CCFormat.int)) \
         [1;2;3])
 *)
-

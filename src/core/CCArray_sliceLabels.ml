@@ -97,7 +97,7 @@ let fold f acc a =
 
 let to_list a =
   let l = fold (fun l x -> x::l) [] a in
-  List.rev l
+  CCListLabels.rev l
 
 let foldi f acc a = _foldi f acc a.arr a.i a.j
 

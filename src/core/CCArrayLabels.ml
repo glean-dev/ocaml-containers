@@ -1,14 +1,19 @@
-
 (* This file is free software, part of containers. See file "license" for more details. *)
 
 (** {1 Array utils} *)
 
 type 'a sequence = ('a -> unit) -> unit
+
 type 'a klist = unit -> [`Nil | `Cons of 'a * 'a klist]
+
 type 'a gen = unit -> 'a option
+
 type 'a equal = 'a -> 'a -> bool
+
 type 'a ord = 'a -> 'a -> int
+
 type 'a random_gen = Random.State.t -> 'a
+
 type 'a printer = Format.formatter -> 'a -> unit
 
 (*$T
@@ -18,26 +23,97 @@ type 'a printer = Format.formatter -> 'a -> unit
 
 (** {2 Arrays} *)
 
-include Array
+include ArrayLabels
 
 type 'a t = 'a array
 
-let empty = [| |]
+let ( <$> ) f l = Belt.Array.map l f
 
-let map = Array.map
+let ( >|= ) = Belt.Array.map
 
-let map2 f a b =
-  if Array.length a <> Array.length b then invalid_arg "map2";
-  Array.init (Array.length a) (fun i -> f (Array.unsafe_get a i) (Array.unsafe_get b i))
+let append = Belt.Array.concat
 
-let length = Array.length
+let blit = Array.blit
 
-let get = Array.get
+let combine = Belt.Array.zip
 
-let get_safe a i =
-  if i>=0 && i<Array.length a
-  then Some (Array.unsafe_get a i)
-  else None
+let compare f a1 a2 = Belt.Array.cmpU a1 a2 (fun [@bs] x y -> f x y)
+
+let concat = Array.concat
+
+let copy = Belt.Array.copy
+
+let exists ~f a = Belt.Array.someU a (fun [@bs] x -> f x)
+
+let exists2 ~f a1 a2 = Belt.Array.some2U a1 a2 (fun [@bs] a b -> f a b)
+
+let equal cmp a1 a2 = Belt.Array.eqU a1 a2 (fun [@bs] a b -> cmp a b)
+
+let filter ~f a = Belt.Array.keep a f
+
+let filter_map ~f a = Belt.Array.keepMapU a (fun [@bs] x -> f x)
+
+let find_opt ~f a = Belt.Array.getByU a (fun [@bs] a -> f a)
+
+let fold = fold_left
+
+let fold_left ~f ~init a =
+  Belt.Array.reduceU a init (fun [@bs] acc x -> f acc x)
+
+let fold_right ~f a ~init =
+  Belt.Array.reduceReverseU a init (fun [@bs] acc x -> f x acc)
+
+let fold_right2 ~f a1 a2 ~init =
+  Belt.Array.reduceReverse2U a1 a2 init (fun [@bs] a b c -> f b c a)
+
+let foldi ~f ~init a =
+  Belt.Array.reduceWithIndexU a init (fun [@bs] acc x i -> f acc i x)
+
+let for_all ~f a = Belt.Array.everyU a (fun [@bs] x -> f x)
+
+let for_all2 ~f a1 a2 = Belt.Array.every2U a1 a2 (fun [@bs] a b -> f a b)
+
+let get_safe = Belt.Array.get
+
+let init len ~f = Belt.Array.makeByU len (fun [@bs] x -> f x)
+
+let iter ~f a = Belt.Array.forEachU a (fun [@bs] x -> f x)
+
+let iteri ~f a = Belt.Array.forEachWithIndexU a (fun [@bs] i x -> f i x)
+
+let length = Belt.Array.length
+
+let length = length
+
+let make = Belt.Array.make
+
+let map ~f a = Belt.Array.map a f
+
+let mapi ~f a = Belt.Array.mapWithIndexU a (fun [@bs] i x -> f i x)
+
+let nth = Belt.Array.getExn
+
+let nth_opt = Belt.Array.get
+
+let of_list = Belt.List.toArray
+
+let partition ~f a = Belt.Array.partitionU a (fun [@bs] x -> f x)
+
+let rev = Belt.Array.reverse
+
+let reverse_in_place = Belt.Array.reverseInPlace
+
+let shuffle = Belt.Array.shuffleInPlace
+
+let size = Belt.Array.size
+
+let to_list = Belt.List.fromArray
+
+let empty = [||]
+
+let map2 ~f a b =
+  if length a <> length b then invalid_arg "map2" ;
+  init (length a) ~f:(fun i -> f (unsafe_get a i) (unsafe_get b i))
 
 (*$=
   (Some 1) (get_safe [|1;2;3|] 0)
@@ -49,45 +125,33 @@ let get_safe a i =
   None (get_safe [|1;2;3|] ~-42)
 *)
 
-let set = Array.set
-
-let fold = Array.fold_left
-
-let foldi f acc a =
-  let rec aux acc i =
-    if i = Array.length a then acc else aux (f acc i a.(i)) (i+1)
-  in
-  aux acc 0
-
-let fold_while f acc a =
+let fold_while ~f ~init:acc a =
   let rec fold_while_i f acc i =
-    if i < Array.length a then
+    if i < length a then
       let acc, cont = f acc a.(i) in
-      match cont with
-        | `Stop -> acc
-        | `Continue -> fold_while_i f acc (i+1)
+      match cont with `Stop -> acc | `Continue -> fold_while_i f acc (i + 1)
     else acc
-  in fold_while_i f acc 0
+  in
+  fold_while_i f acc 0
 
 (*$T
-  fold_while (fun acc b -> if b then acc+1, `Continue else acc, `Stop) 0 (Array.of_list [true;true;false;true]) = 2
+  fold_while (fun acc b -> if b then acc+1, `Continue else acc, `Stop) 0 (of_list [true;true;false;true]) = 2
 *)
 
-let fold_map f acc a =
+let fold_map ~f ~init:acc a =
   let n = length a in
   (* need special case for initializing the result *)
-  if n = 0 then acc, [||]
-  else (
+  if n = 0 then (acc, [||])
+  else
     let acc, b0 = f acc a.(0) in
-    let res = Array.make n b0 in
+    let res = make n b0 in
     let acc = ref acc in
-    for i = 1 to n-1 do
+    for i = 1 to n - 1 do
       let new_acc, b = f !acc a.(i) in
-      acc := new_acc;
-      res.(i) <- b;
-    done;
-    !acc, res
-  )
+      acc := new_acc ;
+      res.(i) <- b
+    done ;
+    (!acc, res)
 
 (*$=
   (6, [|"1"; "2"; "3"|]) \
@@ -96,40 +160,23 @@ let fold_map f acc a =
 
 (*$Q
   Q.(array int) (fun a -> \
-    fold_map (fun acc x -> x::acc, x) [] a = (List.rev @@ Array.to_list a, a))
+    fold_map (fun acc x -> x::acc, x) [] a = (List.rev @@ to_list a, a))
 *)
 
-let scan_left f acc a =
+let scan_left ~f ~init:acc a =
   let n = length a in
-  let res = Array.make (n+1) acc in
-  Array.iteri
-    (fun i x ->
-       let new_acc = f res.(i) x in
-       res.(i+1) <- new_acc)
-    a;
+  let res = make (n + 1) acc in
+  iteri
+    ~f:(fun i x ->
+      let new_acc = f res.(i) x in
+      res.(i + 1) <- new_acc )
+    a ;
   res
 
 (*$= & ~printer:Q.Print.(array int)
   [|0;1;3;6|] (scan_left (+) 0 [|1;2;3|])
   [|0|] (scan_left (+) 0 [||])
 *)
-
-
-let iter = Array.iter
-
-let iteri = Array.iteri
-
-let blit = Array.blit
-
-let reverse_in_place a =
-  let len = Array.length a in
-  if len>0 then (
-    for k = 0 to (len-1)/2 do
-      let t = a.(k) in
-      a.(k) <- a.(len-1-k);
-      a.(len-1-k) <- t;
-    done
-  )
 
 (*$T
   reverse_in_place [| |]; true
@@ -142,10 +189,9 @@ let reverse_in_place a =
     a = [| 6;5;4;3;2;1 |]
 *)
 
-let sorted cmp a =
-  let b = Array.copy a in
-  Array.sort cmp b;
-  b
+let sorted ~f:cmp a =
+  let b = copy a in
+  sort ~cmp b ; b
 
 (*$= & ~cmp:(=) ~printer:Q.Print.(array int)
   [||] (sorted Pervasives.compare [||])
@@ -154,14 +200,14 @@ let sorted cmp a =
 
 (*$Q
   Q.(array int) (fun a -> \
-    let b = Array.copy a in \
-    Array.sort Pervasives.compare b; b = sorted Pervasives.compare a)
+    let b = copy a in \
+    sort ~cmp:Pervasives.compare b; b = sorted Pervasives.compare a)
 *)
 
-let sort_indices cmp a =
-  let len = Array.length a in
-  let b = Array.init len (fun k->k) in
-  Array.sort (fun k1 k2 -> cmp a.(k1) a.(k2)) b;
+let sort_indices ~f:cmp a =
+  let len = length a in
+  let b = init len ~f:(fun k -> k) in
+  sort ~cmp:(fun k1 k2 -> cmp a.(k1) a.(k2)) b ;
   b
 
 (*$= & ~cmp:(=) ~printer:Q.Print.(array int)
@@ -172,11 +218,10 @@ let sort_indices cmp a =
 (*$Q
   Q.(array_of_size Gen.(0 -- 30) printable_string) (fun a -> \
     let b = sort_indices String.compare a in \
-    sorted String.compare a = Array.map (Array.get a) b)
+    sorted String.compare a = map (get a) b)
 *)
 
-let sort_ranking cmp a =
-  sort_indices compare (sort_indices cmp a)
+let sort_ranking ~f a = sort_indices ~f:Pervasives.compare (sort_indices ~f a)
 
 (*$= & ~cmp:(=) ~printer:Q.Print.(array int)
   [||] (sort_ranking Pervasives.compare [||])
@@ -187,13 +232,8 @@ let sort_ranking cmp a =
   Q.(array_of_size Gen.(0--50) printable_string) (fun a -> \
     let b = sort_ranking String.compare a in \
     let a_sorted = sorted String.compare a in \
-    a = Array.map (Array.get a_sorted) b)
+    a = map (get a_sorted) b)
 *)
-
-let rev a =
-  let b = Array.copy a in
-  reverse_in_place b;
-  b
 
 (*$Q
   Q.(array small_int) (fun a -> rev (rev a) = a)
@@ -206,33 +246,19 @@ let rev a =
 *)
 
 let rec find_aux f a i =
-  if i = Array.length a then None
-  else match f i a.(i) with
-    | Some _ as res -> res
-    | None -> find_aux f a (i+1)
+  if i = length a then None
+  else
+    match f i a.(i) with Some _ as res -> res | None -> find_aux f a (i + 1)
 
-let find_map f a = find_aux (fun _ -> f ) a 0
+let find_map ~f a = find_aux (fun _ -> f) a 0
 
 let find = find_map
 
-let find_map_i f a = find_aux f a 0
+let find_map_i ~f a = find_aux f a 0
 
 let findi = find_map_i
 
-let find_idx p a =
-  find_aux (fun i x -> if p x then Some (i,x) else None) a 0
-
-let filter_map f a =
-  let rec aux acc i =
-    if i = Array.length a
-    then (
-      let a' = Array.of_list acc in
-      reverse_in_place a';
-      a'
-    ) else match f a.(i) with
-      | None -> aux acc (i+1)
-      | Some x -> aux (x::acc) (i+1)
-  in aux [] 0
+let find_idx ~f a = find_aux (fun i x -> if f x then Some (i, x) else None) a 0
 
 (*$T
   filter_map (fun x -> if x mod 2 = 0 then Some (string_of_int x) else None) \
@@ -242,28 +268,20 @@ let filter_map f a =
     = [| "2"; "4"; "6" |]
 *)
 
-let filter p a =
-  filter_map (fun x -> if p x then Some x else None) a
-
 (* append [rev a] in front of [acc] *)
 let rec __rev_append_list a acc i =
-  if i = Array.length a
-  then acc
-  else
-    __rev_append_list a (a.(i) :: acc) (i+1)
+  if i = length a then acc else __rev_append_list a (a.(i) :: acc) (i + 1)
 
-let flat_map f a =
+let flat_map ~f a =
   let rec aux acc i =
-    if i = Array.length a
-    then (
-      let a' = Array.of_list acc in
-      reverse_in_place a';
-      a'
-    )
+    if i = length a then (
+      let a' = of_list acc in
+      reverse_in_place a' ; a' )
     else
       let a' = f a.(i) in
-      aux (__rev_append_list a' acc 0) (i+1)
-  in aux [] 0
+      aux (__rev_append_list a' acc 0) (i + 1)
+  in
+  aux [] 0
 
 (*$T
   let a = [| 1; 3; 5 |] in \
@@ -272,36 +290,42 @@ let flat_map f a =
 *)
 
 let rec _lookup_rec ~cmp k a i j =
-  if i>j then raise Not_found
-  else if i=j
-  then if cmp k a.(i) = 0
-    then i
-    else raise Not_found
+  if i > j then raise Not_found
+  else if i = j then if cmp k a.(i) = 0 then i else raise Not_found
   else
-    let middle = (j+i)/2 in
+    let middle = (j + i) / 2 in
     match cmp k a.(middle) with
-      | 0 -> middle
-      | n when n<0 -> _lookup_rec ~cmp k a i (middle-1)
-      | _ -> _lookup_rec ~cmp k a (middle+1) j
+    | 0 ->
+        middle
+    | n when n < 0 ->
+        _lookup_rec ~cmp k a i (middle - 1)
+    | _ ->
+        _lookup_rec ~cmp k a (middle + 1) j
 
 let _lookup_exn ~cmp k a i j =
-  if i>j then raise Not_found;
+  if i > j then raise Not_found ;
   match cmp k a.(i) with
-    | 0 -> i
-    | n when n<0 -> raise Not_found (* too low *)
-    | _ when i=j -> raise Not_found (* too high *)
+  | 0 ->
+      i
+  | n when n < 0 ->
+      raise Not_found (* too low *)
+  | _ when i = j ->
+      raise Not_found (* too high *)
+  | _ -> (
+    match cmp k a.(j) with
+    | 0 ->
+        j
+    | n when n < 0 ->
+        _lookup_rec ~cmp k a (i + 1) (j - 1)
     | _ ->
-      match cmp k a.(j) with
-        | 0 -> j
-        | n when n<0 -> _lookup_rec ~cmp k a (i+1) (j-1)
-        | _ -> raise Not_found  (* too high *)
+        raise Not_found )
 
-let lookup_exn ~cmp k a =
-  _lookup_exn ~cmp k a 0 (Array.length a-1)
+(* too high *)
 
-let lookup ~cmp k a =
-  try Some (_lookup_exn ~cmp k a 0 (Array.length a-1))
-  with Not_found -> None
+let lookup_exn ~cmp ~key a = _lookup_exn ~cmp key a 0 (length a - 1)
+
+let lookup ~cmp ~key a =
+  try Some (_lookup_exn ~cmp key a 0 (length a - 1)) with Not_found -> None
 
 (*$T
   lookup ~cmp:CCInt.compare 2 [|0;1;2;3;4;5|] = Some 2
@@ -313,23 +337,30 @@ let lookup ~cmp k a =
   lookup ~cmp:CCInt.compare 2 [| 1 |] = None
 *)
 
-let bsearch ~cmp k a =
+let bsearch ~cmp ~key a =
   let rec aux i j =
-    if i > j
-    then `Just_after j
+    if i > j then `Just_after j
     else
-      let middle = i + (j - i) / 2 in (* avoid overflow *)
-      match cmp k a.(middle) with
-        | 0 -> `At middle
-        | n when n<0 -> aux i (middle - 1)
-        | _ -> aux (middle + 1) j
+      let middle = i + ((j - i) / 2) in
+      (* avoid overflow *)
+      match cmp key a.(middle) with
+      | 0 ->
+          `At middle
+      | n when n < 0 ->
+          aux i (middle - 1)
+      | _ ->
+          aux (middle + 1) j
   in
-  let n = Array.length a in
-  if n=0 then `Empty
-  else match cmp a.(0) k, cmp a.(n-1) k with
-    | c, _ when c>0 -> `All_bigger
-    | _, c when c<0 -> `All_lower
-    | _ -> aux 0 (n-1)
+  let n = length a in
+  if n = 0 then `Empty
+  else
+    match (cmp a.(0) key, cmp a.(n - 1) key) with
+    | c, _ when c > 0 ->
+        `All_bigger
+    | _, c when c < 0 ->
+        `All_lower
+    | _ ->
+        aux 0 (n - 1)
 
 (*$T bsearch
   bsearch ~cmp:CCInt.compare 3 [|1; 2; 2; 3; 4; 10|] = `At 3
@@ -341,103 +372,62 @@ let bsearch ~cmp k a =
   bsearch ~cmp:CCInt.compare 3 [| |] = `Empty
 *)
 
-let (>>=) a f = flat_map f a
+let ( >>= ) a f = flat_map ~f a
 
-let (>>|) a f = map f a
+let ( >>| ) a f = map ~f a
 
-let (>|=) a f = map f a
-
-let for_all p a =
-  let rec aux i =
-    i = Array.length a || (p a.(i) && aux (i+1))
-  in
-  aux 0
-
-let exists p a =
-  let rec aux i =
-    i <> Array.length a && (p a.(i) || aux (i+1))
-  in
-  aux 0
-
-let rec _for_all2 p a1 a2 i1 i2 ~len =
-  len=0 || (p a1.(i1) a2.(i2) && _for_all2 p a1 a2 (i1+1) (i2+1) ~len:(len-1))
-
-let for_all2 p a b =
-  Array.length a = Array.length b
-  &&
-  _for_all2 p a b 0 0 ~len:(Array.length a)
-
-let rec _exists2 p a1 a2 i1 i2 ~len =
-  len>0 && (p a1.(i1) a2.(i2) || _exists2 p a1 a2 (i1+1) (i2+1) ~len:(len-1))
-
-let exists2 p a b =
-  _exists2 p a b 0 0 ~len:(min (Array.length a) (Array.length b))
+let ( >|= ) a f = map ~f a
 
 let _iter2 f a b i j ~len =
-  for o = 0 to len-1 do
-    f (Array.get a (i+o)) (Array.get b (j+o))
+  for o = 0 to len - 1 do
+    f (get a (i + o)) (get b (j + o))
   done
 
 let _fold2 f acc a b i j ~len =
   let rec aux acc o =
-    if o=len then acc
+    if o = len then acc
     else
-      let acc = f acc (Array.get a (i+o)) (Array.get b (j+o)) in
-      aux acc (o+1)
+      let acc = f acc (get a (i + o)) (get b (j + o)) in
+      aux acc (o + 1)
   in
   aux acc 0
 
-let iter2 f a b =
-  if length a <> length b then invalid_arg "iter2";
-  _iter2 f a b 0 0 ~len:(Array.length a)
+let iter2 ~f a b =
+  if length a <> length b then invalid_arg "iter2" ;
+  _iter2 f a b 0 0 ~len:(length a)
 
-let fold2 f acc a b =
-  if length a <> length b then invalid_arg "fold2";
-  _fold2 f acc a b 0 0 ~len:(Array.length a)
+let fold2 ~f ~init:acc a b =
+  if length a <> length b then invalid_arg "fold2" ;
+  _fold2 f acc a b 0 0 ~len:(length a)
 
-let (--) i j =
-  if i<=j
-  then
-    Array.init (j-i+1) (fun k -> i+k)
-  else
-    Array.init (i-j+1) (fun k -> i-k)
+let ( -- ) i j =
+  if i <= j then init (j - i + 1) ~f:(fun k -> i + k)
+  else init (i - j + 1) ~f:(fun k -> i - k)
 
 (*$T
-  (1 -- 4) |> Array.to_list = [1;2;3;4]
-  (4 -- 1) |> Array.to_list = [4;3;2;1]
-  (0 -- 0) |> Array.to_list = [0]
+  (1 -- 4) |> to_list = [1;2;3;4]
+  (4 -- 1) |> to_list = [4;3;2;1]
+  (0 -- 0) |> to_list = [0]
 *)
 
 (*$Q
   Q.(pair small_int small_int) (fun (a,b) -> \
-    (a -- b) |> Array.to_list = CCList.(a -- b))
+    (a -- b) |> to_list = CCList.(a -- b))
 *)
 
-let (--^) i j =
-  if i=j then [| |]
-  else if i>j
-  then Array.init (i-j) (fun k -> i-k)
-  else Array.init (j-i) (fun k -> i+k)
+let ( --^ ) i j =
+  if i = j then [||]
+  else if i > j then init (i - j) ~f:(fun k -> i - k)
+  else init (j - i) ~f:(fun k -> i + k)
 
 (*$Q
   Q.(pair small_int small_int) (fun (a,b) -> \
-    (a --^ b) |> Array.to_list = CCList.(a --^ b))
+    (a --^ b) |> to_list = CCList.(a --^ b))
 *)
 
 (** all the elements of a, but the i-th, into a list *)
 let except_idx a i =
-  foldi
-    (fun acc j elt -> if i = j then acc else elt::acc)
-    [] a
-
-let equal eq a b =
-  let rec aux i =
-    if i = Array.length a then true
-    else eq a.(i) b.(i) && aux (i+1)
-  in
-  Array.length a = Array.length b
-  &&
-  aux 0
+  foldi ~f:(fun acc j elt -> if i = j then acc else elt :: acc) ~init:[] a
 
 (*$Q
   Q.(pair (array small_int)(array small_int)) (fun (a,b) -> \
@@ -448,18 +438,6 @@ let equal eq a b =
   equal (=) [|1|] [|1|]
 *)
 
-let compare cmp a b =
-  let rec aux i =
-    if i = Array.length a
-    then if i = Array.length b then 0 else -1
-    else if i = Array.length b
-    then 1
-    else
-      let c = cmp a.(i) b.(i) in
-      if c = 0 then aux (i+1) else c
-  in
-  aux 0
-
 (*$T
   compare CCOrd.compare [| 1; 2; 3 |] [| 1; 2; 3 |] = 0
   compare CCOrd.compare [| 1; 2; 3 |] [| 2; 2; 3 |] < 0
@@ -469,11 +447,10 @@ let compare cmp a b =
 
 (* swap elements of array *)
 let swap a i j =
-  if i<>j then (
+  if i <> j then (
     let tmp = a.(i) in
-    a.(i) <- a.(j);
-    a.(j) <- tmp;
-  )
+    a.(i) <- a.(j) ;
+    a.(j) <- tmp )
 
 (*$T
   let a = [| 1;2;3 |] in \
@@ -486,12 +463,12 @@ let swap a i j =
 
 (*$QR
   Q.(array_of_size Gen.(0 -- 100) small_int) (fun a ->
-    let b = Array.copy a in
-    for i = 0 to Array.length a-1 do
-      for j = i+1 to Array.length a-1 do
+    let b = copy a in
+    for i = 0 to length a-1 do
+      for j = i+1 to length a-1 do
         swap a i j; done; done;
-    for i = 0 to Array.length a-1 do
-      for j = i+1 to Array.length a-1 do
+    for i = 0 to length a-1 do
+      for j = i+1 to length a-1 do
         swap a i j; done; done;
     a=b)
 *)
@@ -499,29 +476,24 @@ let swap a i j =
 (* shuffle a[i...j[ using the given int random generator
    See http://en.wikipedia.org/wiki/Fisher-Yates_shuffle *)
 let _shuffle _rand_int a i j =
-  for k = j-1 downto i+1 do
-    let l = _rand_int (k+1) in
+  for k = j - 1 downto i + 1 do
+    let l = _rand_int (k + 1) in
     let tmp = a.(l) in
-    a.(l) <- a.(k);
-    a.(k) <- tmp;
+    a.(l) <- a.(k) ;
+    a.(k) <- tmp
   done
 
-let shuffle a =
-  _shuffle Random.int a 0 (Array.length a)
-
-let shuffle_with st a =
-  _shuffle (Random.State.int st) a 0 (Array.length a)
+let shuffle_with st a = _shuffle (Random.State.int st) a 0 (length a)
 
 let rec _to_klist a i j () =
-  if i=j then `Nil else `Cons (a.(i), _to_klist a (i+1) j)
+  if i = j then `Nil else `Cons (a.(i), _to_klist a (i + 1) j)
 
 let random_choose a =
-  let n = Array.length a in
-  if n = 0 then invalid_arg "Array.random_choose";
+  let n = length a in
+  if n = 0 then invalid_arg "random_choose" ;
   fun st -> a.(Random.State.int st n)
 
-let random_len n g st =
-  Array.init n (fun _ -> g st)
+let random_len n g st = init n ~f:(fun _ -> g st)
 
 let random g st =
   let n = Random.State.int st 1_000 in
@@ -531,36 +503,39 @@ let random_non_empty g st =
   let n = 1 + Random.State.int st 1_000 in
   random_len n g st
 
-let pp ?(sep=", ") pp_item out a =
-  for k = 0 to Array.length a-1 do
-    if k > 0 then (Format.pp_print_string out sep; Format.pp_print_cut out ());
+let pp ?(sep = ", ") pp_item out a =
+  for k = 0 to length a - 1 do
+    if k > 0 then (
+      Format.pp_print_string out sep ;
+      Format.pp_print_cut out () ) ;
     pp_item out a.(k)
   done
 
-let pp_i ?(sep=", ") pp_item out a =
-  for k = 0 to Array.length a - 1 do
-    if k > 0 then (Format.pp_print_string out sep; Format.pp_print_cut out ());
+let pp_i ?(sep = ", ") pp_item out a =
+  for k = 0 to length a - 1 do
+    if k > 0 then (
+      Format.pp_print_string out sep ;
+      Format.pp_print_cut out () ) ;
     pp_item k out a.(k)
   done
 
-let to_seq a k = iter k a
+let to_seq a k = iter ~f:k a
 
 let to_gen a =
   let k = ref 0 in
   fun () ->
-    if !k < Array.length a
-    then (
+    if !k < length a then (
       let x = a.(!k) in
-      incr k;
-      Some x
-    ) else None
+      incr k ; Some x )
+    else None
 
-let to_klist a = _to_klist a 0 (Array.length a)
+let to_klist a = _to_klist a 0 (length a)
 
 (** {2 Generic Functions} *)
 
 module type MONO_ARRAY = sig
   type elt
+
   type t
 
   val length : t -> int
@@ -572,100 +547,92 @@ end
 
 (* Dual Pivot Quicksort (Yaroslavskiy)
    from "average case analysis of Java 7's Dual Pivot Quicksort" *)
-module SortGeneric(A : MONO_ARRAY) = struct
+module SortGeneric (A : MONO_ARRAY) = struct
   module Rand = Random.State
 
   let seed_ = [|123456|]
 
-  type state = {
-    mutable l: int; (* left pointer *)
-    mutable g: int; (* right pointer *)
-    mutable k: int;
-  }
+  type state =
+    { mutable l: int
+    ; (* left pointer *)
+      mutable g: int
+    ; (* right pointer *)
+      mutable k: int }
 
-  let rand_idx_ rand i j = i + Rand.int rand (j-i)
+  let rand_idx_ rand i j = i + Rand.int rand (j - i)
 
   let swap_ a i j =
-    if i=j then ()
-    else (
+    if i = j then ()
+    else
       let tmp = A.get a i in
-      A.set a i (A.get a j);
+      A.set a i (A.get a j) ;
       A.set a j tmp
-    )
 
   let sort ~cmp a =
     let rec insert_ a i k =
-      if k<i then ()
-      else if cmp (A.get a k) (A.get a (k+1)) > 0 then (
-        swap_ a k (k+1);
-        insert_ a i (k-1)
-      )
+      if k < i then ()
+      else if cmp (A.get a k) (A.get a (k + 1)) > 0 then (
+        swap_ a k (k + 1) ;
+        insert_ a i (k - 1) )
     in
     (* recursive part of insertion sort *)
     let rec sort_insertion_rec a i j k =
-      if k<j then (
-        insert_ a i (k-1);
-        sort_insertion_rec a i j (k+1)
-      )
+      if k < j then (
+        insert_ a i (k - 1) ;
+        sort_insertion_rec a i j (k + 1) )
     in
     (* insertion sort, for small slices *)
     let sort_insertion a i j =
-      if j-i > 1 then sort_insertion_rec a i j (i+1)
+      if j - i > 1 then sort_insertion_rec a i j (i + 1)
     in
     let rand = Rand.make seed_ in
     (* sort slice.
        There is a chance that the two pivots are equal, but it's unlikely. *)
     let rec sort_slice_ ~st a i j =
-      if j-i>10 then (
-        st.l <- i;
-        st.g <- j-1;
-        st.k <- i;
+      if j - i > 10 then (
+        st.l <- i ;
+        st.g <- j - 1 ;
+        st.k <- i ;
         (* choose pivots *)
         let p = A.get a (rand_idx_ rand i j) in
         let q = A.get a (rand_idx_ rand i j) in
         (* invariant: st.p <= st.q, swap them otherwise *)
-        let p, q = if cmp p q > 0 then q, p else p, q in
+        let p, q = if cmp p q > 0 then (q, p) else (p, q) in
         while st.k <= st.g do
           let cur = A.get a st.k in
           if cmp cur p < 0 then (
             (* insert in leftmost band *)
-            if st.k <> st.l then swap_ a st.k st.l;
-            st.l <- st.l + 1
-          ) else if cmp cur q > 0 then (
+            if st.k <> st.l then swap_ a st.k st.l ;
+            st.l <- st.l + 1 )
+          else if cmp cur q > 0 then (
             (* insert in rightmost band *)
             while st.k < st.g && cmp (A.get a st.g) q > 0 do
               st.g <- st.g - 1
-            done;
-            swap_ a st.k st.g;
-            st.g <- st.g - 1;
+            done ;
+            swap_ a st.k st.g ;
+            st.g <- st.g - 1 ;
             (* the element swapped from the right might be in the first situation.
                that is, < p  (we know it's <= q already) *)
             if cmp (A.get a st.k) p < 0 then (
-              if st.k <> st.l then swap_ a st.k st.l;
-              st.l <- st.l + 1
-            )
-          );
+              if st.k <> st.l then swap_ a st.k st.l ;
+              st.l <- st.l + 1 ) ) ;
           st.k <- st.k + 1
-        done;
+        done ;
         (* save values before recursing *)
         let l = st.l and g = st.g and sort_middle = cmp p q < 0 in
-        sort_slice_ ~st a i l;
-        if sort_middle then sort_slice_ ~st a l (g+1);
-        sort_slice_ ~st a (g+1) j;
-      ) else sort_insertion a i j
+        sort_slice_ ~st a i l ;
+        if sort_middle then sort_slice_ ~st a l (g + 1) ;
+        sort_slice_ ~st a (g + 1) j )
+      else sort_insertion a i j
     in
-    if A.length a > 0 then (
-      let st = { l=0; g=A.length a; k=0; } in
+    if A.length a > 0 then
+      let st = {l= 0; g= A.length a; k= 0} in
       sort_slice_ ~st a 0 (A.length a)
-    )
 end
 
-
-let sort_generic (type arr)(type elt)
-    (module A : MONO_ARRAY with type t = arr and type elt = elt)
-    ~cmp a
-  =
-  let module S = SortGeneric(A) in
+let sort_generic (type arr elt)
+    (module A : MONO_ARRAY with type t = arr and type elt = elt) ~cmp a =
+  let module S = SortGeneric (A) in
   S.sort ~cmp a
 
 (*$inject
@@ -678,14 +645,14 @@ let sort_generic (type arr)(type elt)
   let gen_arr = Q.Gen.(array_size (1--100) small_int)
   let arr_arbitrary = Q.make
     ~print:Q.Print.(array int)
-    ~small:Array.length
+    ~small:length
     ~shrink:Q.Shrink.(array ?shrink:None)
     gen_arr
 *)
 
 (*$Q & ~count:300
   arr_arbitrary (fun a -> \
-    let a1 = Array.copy a and a2 = Array.copy a in \
-    Array.sort CCInt.compare a1; sort_generic (module IA) ~cmp:CCInt.compare a2; \
+    let a1 = copy a and a2 = copy a in \
+    sort ~cmp:CCInt.compare a1; sort_generic (module IA) ~cmp:CCInt.compare a2; \
     a1 = a2 )
 *)

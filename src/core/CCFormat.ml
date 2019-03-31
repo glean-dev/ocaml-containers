@@ -32,7 +32,7 @@ let int fmt i = Format.pp_print_string fmt (string_of_int i)
 let string = Format.pp_print_string
 let bool = Format.pp_print_bool
 let float3 fmt f = Format.fprintf fmt "%.3f" f
-let float fmt f = Format.pp_print_string fmt (string_of_float f)
+let float fmt f = Format.pp_print_string fmt (Belt.Float.toString f)
 
 let char = Format.pp_print_char
 let int32 fmt n = Format.fprintf fmt "%ld" n
@@ -235,8 +235,8 @@ let ansi_l_to_str_ = function
     let buf = Buffer.create 16 in
     let pp_num c = Buffer.add_string buf (string_of_int (code_of_style c)) in
     Buffer.add_string buf "\x1b[";
-    List.iteri
-      (fun i c ->
+    CCListLabels.iteri
+      ~f:(fun i c ->
          if i>0 then Buffer.add_char buf ';';
          pp_num c)
       l;
@@ -293,7 +293,7 @@ let mark_close_tag st ~or_else s =
 
 (* add color handling to formatter [ppf] *)
 let set_color_tag_handling ppf =
-  let open Format in
+  let open! Format in
   let functions = pp_get_formatter_tag_functions ppf () in
   let st = Stack.create () in (* stack of styles *)
   let functions' = {functions with
@@ -417,8 +417,8 @@ module Dump = struct
   let triple p1 p2 p3 = within "(" ")" (hovbox (triple p1 p2 p3))
   let quad p1 p2 p3 p4 = within "(" ")" (hovbox (quad p1 p2 p3 p4))
   let result' pok perror out = function
-    | Result.Ok x -> Format.fprintf out "(@[Ok %a@])" pok x
-    | Result.Error e -> Format.fprintf out "(@[Error %a@])" perror e
+    | Belt.Result.Ok x -> Format.fprintf out "(@[Ok %a@])" pok x
+    | Belt.Result.Error e -> Format.fprintf out "(@[Error %a@])" perror e
   let result pok = result' pok string
   let to_string = to_string
 end

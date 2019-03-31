@@ -10,9 +10,9 @@ type 'a printer = Format.formatter -> 'a -> unit
 
 (** {2 Basics} *)
 
-include Result
+(* include Result *)
 
-type (+'good, +'bad) t = ('good, 'bad) Result.result =
+type (+'good, +'bad) t = ('good, 'bad) Belt.Result.t =
   | Ok of 'good
   | Error of 'bad
 
@@ -67,9 +67,7 @@ let of_exn_trace e =
   in
   Error res
 
-let map f e = match e with
-  | Ok x -> Ok (f x)
-  | Error s -> Error s
+let map f e = Belt.Result.mapU e (fun[@bs] x -> f x)
 
 let map_err f e = match e with
   | Ok _ as res -> res
@@ -115,19 +113,15 @@ let get_or_failwith = function
   try ignore @@ get_or_failwith (Error "e"); false with Failure msg -> msg = "e"
 *)
 
-let map_or f e ~default = match e with
-  | Ok x -> f x
-  | Error _ -> default
+let map_or f e ~default = Belt.Result.mapWithDefaultU e default (fun[@bs] x -> f x)
 
 let catch e ~ok ~err = match e with
   | Ok x -> ok x
   | Error y -> err y
 
-let flat_map f e = match e with
-  | Ok x -> f x
-  | Error s -> Error s
+let flat_map f e = Belt.Result.flatMapU e (fun[@bs] x -> f x)
 
-let (>|=) e f = map f e
+let (>|=) e f = Belt.Result.mapU e (fun[@bs] x -> f x)
 
 let (>>=) e f = flat_map f e
 
@@ -211,7 +205,7 @@ let both x y = match x,y with
 
 let map_l f l =
   let rec map acc l = match l with
-    | [] -> Ok (List.rev acc)
+    | [] -> Ok (CCListLabels.rev acc)
     | x::l' ->
       match f x with
         | Error s -> Error s
@@ -232,7 +226,7 @@ let fold_seq f acc seq =
   with LocalExit ->
   match !err with None -> assert false | Some s -> Error s
 
-let fold_l f acc l = fold_seq f acc (fun k -> List.iter k l)
+let fold_l f acc l = fold_seq f acc (fun k -> CCListLabels.iter ~f:k l)
 
 (** {2 Misc} *)
 
@@ -244,12 +238,12 @@ let choose l =
   in
   try find_ l
   with Not_found ->
-    let l' = List.map (function Error s -> s | Ok _ -> assert false) l in
+    let l' = CCListLabels.map ~f:(function Error s -> s | Ok _ -> assert false) l in
     Error l'
 
 let retry n f =
   let rec retry n acc = match n with
-    | 0 -> fail (List.rev acc)
+    | 0 -> fail (CCListLabels.rev acc)
     | _ ->
       match f () with
         | Ok _ as res -> res
@@ -287,7 +281,7 @@ module Traverse(M : MONAD) = struct
 
   let retry_m n f =
     let rec retry n acc = match n with
-      | 0 -> M.return (fail (List.rev acc))
+      | 0 -> M.return (fail (CCListLabels.rev acc))
       | _ ->
         f () >>= function
         | Ok x -> M.return (Ok x)

@@ -96,7 +96,7 @@ val count_true_false : f:('a -> bool) -> 'a list -> int * int
 
 val init : int -> f:(int -> 'a) -> 'a t
 (** [init len ~f] is [f 0; f 1; ...; f (len-1)].
-    @raise Invalid_argument if len < 0.
+    Returns empty list if len <= 0.
     @since 0.6 *)
 
 val combine : 'a list -> 'b list -> ('a * 'b) list
@@ -392,7 +392,7 @@ val keep_some : 'a option t -> 'a t
     @since 1.3, but only
     @since 2.2 with labels *)
 
-val keep_ok : ('a, _) Result.result t -> 'a t
+val keep_ok : ('a, _) Belt.Result.t t -> 'a t
 (** [keep_ok l] retains only elements of the form [Ok x].
     @since 1.3, but only
     @since 2.2 with labels *)
@@ -403,7 +403,7 @@ val all_some : 'a option t -> 'a t option
     @since 1.3, but only
     @since 2.2 with labels *)
 
-val all_ok : ('a, 'err) Result.result t -> ('a t, 'err) Result.result
+val all_ok : ('a, 'err) Belt.Result.t t -> ('a t, 'err) Belt.Result.t
 (** [all_ok l] returns [Ok l'] if all elements of [l] are of the form [Ok x],
     or [Error e] otherwise (with the first error met).
     @since 1.3, but only

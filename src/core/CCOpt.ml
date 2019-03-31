@@ -5,13 +5,9 @@
 
 type 'a t = 'a option
 
-let map f = function
-  | None -> None
-  | Some x -> Some (f x)
+let map f o = Belt.Option.mapU o (fun[@bs] x -> f x)
 
-let map_or ~default f = function
-  | None -> default
-  | Some x -> f x
+let map_or ~default f o = Belt.Option.mapWithDefaultU o default (fun[@bs] x -> f x)
 
 let map_lazy default_fn f = function
   | None -> default_fn ()
@@ -25,29 +21,17 @@ let is_none = function
   | None -> true
   | Some _ -> false
 
-let compare f o1 o2 = match o1, o2 with
-  | None, None -> 0
-  | Some _, None -> 1
-  | None, Some _ -> -1
-  | Some x, Some y -> f x y
+let compare f o1 o2 = Belt.Option.cmpU o1 o2 (fun[@bs] x y -> f x y)
 
-let equal f o1 o2 = match o1, o2 with
-  | None, None -> true
-  | Some _, None
-  | None, Some _ -> false
-  | Some x, Some y -> f x y
+let equal f o1 o2 = Belt.Option.eqU o1 o2 (fun[@bs] x y -> f x y)
 
 let return x = Some x
 
-let (>|=) x f = map f x
+let (>|=) x f = Belt.Option.mapU x (fun[@bs] x -> f x)
 
-let (>>=) o f = match o with
-  | None -> None
-  | Some x -> f x
+let (>>=) o f = Belt.Option.flatMapU o (fun[@bs] x -> f x)
 
-let flat_map f o = match o with
-  | None -> None
-  | Some x -> f x
+let flat_map f o = Belt.Option.flatMapU o (fun[@bs] x -> f x)
 
 let pure x = Some x
 
@@ -68,7 +52,7 @@ let or_lazy ~else_ a = match a with
 
 let (<+>) a b = or_ ~else_:b a
 
-let choice l = List.fold_left (<+>) None l
+let choice l = CCListLabels.fold_left ~f:(<+>) ~init:None l
 
 let map2 f o1 o2 = match o1, o2 with
   | None, _
@@ -117,7 +101,7 @@ let get_lazy default_fn x = match x with
 
 let sequence_l l =
   let rec aux acc l = match l with
-    | [] -> Some (List.rev acc)
+    | [] -> Some (CCListLabels.rev acc)
     | Some x :: l' -> aux (x::acc) l'
     | None :: _ -> raise Exit
   in
@@ -148,16 +132,16 @@ let of_list = function
   | [] -> None
 
 let to_result err = function
-  | None -> Result.Error err
-  | Some x -> Result.Ok x
+  | None -> Belt.Result.Error err
+  | Some x -> Belt.Result.Ok x
 
 let to_result_lazy err_fn = function
-  | None -> Result.Error (err_fn ())
-  | Some x -> Result.Ok x
+  | None -> Belt.Result.Error (err_fn ())
+  | Some x -> Belt.Result.Ok x
 
 let of_result = function
-  | Result.Error _ -> None
-  | Result.Ok x -> Some x
+  | Belt.Result.Error _ -> None
+  | Belt.Result.Ok x -> Some x
 
 module Infix = struct
   let (>|=) = (>|=)

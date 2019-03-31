@@ -7,68 +7,16 @@ type 'a gen = unit -> 'a option
 type 'a sequence = ('a -> unit) -> unit
 type 'a klist = unit -> [`Nil | `Cons of 'a * 'a klist]
 
-(* compatibility implementations *)
-
-let init n f =
-  let buf = Bytes.init n f in
-  Bytes.unsafe_to_string buf
-
-(*$T
-  init 3 (fun i -> [|'a'; 'b'; 'c'|].(i)) = "abc"
-  init 0 (fun _ -> assert false) = ""
-*)
-
-let uppercase_ascii = String.map CCChar.uppercase_ascii
-
-let lowercase_ascii = String.map CCChar.lowercase_ascii
-
-let mapi f s = init (String.length s) (fun i -> f i s.[i])
-
-let capitalize_ascii s =
-  mapi
-    (fun i c -> if i=0 then CCChar.uppercase_ascii c else c)
-    s
-
-let uncapitalize_ascii s =
-  mapi
-    (fun i c -> if i=0 then CCChar.lowercase_ascii c else c)
-    s
-
 (* standard implementations *)
 
-include String
-
-module type S = sig
-  type t
-
-  val length : t -> int
-
-  val blit : t -> int -> Bytes.t -> int -> int -> unit
-  (** Like {!String.blit}.
-      Compatible with the [-safe-string] option.
-      @raise Invalid_argument if indices are not valid *)
-
-  val fold : ('a -> char -> 'a) -> 'a -> t -> 'a
-
-  (** {2 Conversions} *)
-
-  val to_gen : t -> char gen
-  val to_seq : t -> char sequence
-  val to_klist : t -> char klist
-  val to_list : t -> char list
-
-  val pp_buf : Buffer.t -> t -> unit
-  val pp : Format.formatter -> t -> unit
-end
-
-let equal (a:string) b = Pervasives.(=) a b
+include StringLabels
 
 let compare_int (a : int) b = Pervasives.compare a b
 let compare = String.compare
+let init = String.init
 
 let hash s = Hashtbl.hash s
 
-let length = String.length
 
 let is_empty s = equal s ""
 
@@ -83,7 +31,7 @@ let rev s =
 
 (*$Q
   Q.printable_string (fun s -> \
-    rev s = (to_list s |> List.rev |> of_list))
+    rev s = (to_list s |> CCListLabels.rev |> of_list))
 *)
 
 
@@ -94,7 +42,7 @@ let rev s =
 *)
 
 let rec _to_list s acc i len =
-  if len=0 then List.rev acc
+  if len=0 then CCListLabels.rev acc
   else _to_list s (s.[i]::acc) (i+1) (len-1)
 
 let _is_sub ~sub i s j ~len =
@@ -105,9 +53,9 @@ let _is_sub ~sub i s j ~len =
   in
   j+len <= String.length s && check 0
 
-let is_sub ~sub i s j ~len =
-  if i+len > String.length sub then invalid_arg "CCString.is_sub";
-  _is_sub ~sub i s j ~len
+let is_sub ~sub ~sub_pos:i s ~pos:j ~sub_len =
+  if i+sub_len > String.length sub then invalid_arg "CCString.is_sub";
+  _is_sub ~sub i s j ~len:sub_len
 
 type _ direction =
   | Direct : [`Direct] direction
@@ -141,7 +89,7 @@ module Find = struct
         | 1 -> {failure=[| -1 |]; str;}
         | _ ->
           (* at least 2 elements, the algorithm can work *)
-          let failure = Array.make len 0 in
+          let failure = CCArrayLabels.make len 0 in
           failure.(0) <- -1;
           (* i: current index in str *)
           let i = ref 2 in
@@ -308,7 +256,7 @@ let find_all ?(start=0) ~sub =
 
 let find_all_l ?start ~sub s =
   let rec aux acc g = match g () with
-    | None -> List.rev acc
+    | None -> CCListLabels.rev acc
     | Some i -> aux (i::acc) g
   in
   aux [] (find_all ?start ~sub s)
@@ -438,9 +386,9 @@ module Split = struct
   let _mklist ~drop ~by s k =
     let by = Find.compile by in
     let rec build acc state = match _split ~by s state with
-      | None -> List.rev acc
+      | None -> CCListLabels.rev acc
       | Some (state',0,0) when drop.first -> build acc state'
-      | Some (_, i, 0) when drop.last && i=length s -> List.rev acc
+      | Some (_, i, 0) when drop.last && i=length s -> CCListLabels.rev acc
       | Some (state', i, len) ->
         build (k s i len ::acc) state'
     in
@@ -517,7 +465,7 @@ module Split = struct
 
 end
 
-let split_on_char c s: _ list =
+let split_on_char ~by:c s: _ list =
   Split.list_cpy ~drop:Split.no_drop ~by:(String.make 1 c) s
 
 (*$= & ~printer:Q.Print.(list string)
@@ -632,8 +580,8 @@ let edit_distance s1 s2 =
   then 0
   else begin
     (* distance vectors (v0=previous, v1=current) *)
-    let v0 = Array.make (length s2 + 1) 0 in
-    let v1 = Array.make (length s2 + 1) 0 in
+    let v0 = CCArrayLabels.make (length s2 + 1) 0 in
+    let v1 = CCArrayLabels.make (length s2 + 1) 0 in
     (* initialize v0: v0(i) = A(0)(i) = delete i chars from t *)
     for i = 0 to length s2 do
       v0.(i) <- i
@@ -773,8 +721,6 @@ let chop_prefix ~pre s =
   None (chop_prefix ~pre:"abcd" "abc")
 *)
 
-let blit = String.blit
-
 let fold f acc s =
   let rec fold_rec f acc s i =
     if i = String.length s then acc
@@ -846,8 +792,8 @@ let to_klist s = _to_klist s 0 (String.length s)
 let to_list s = _to_list s [] 0 (String.length s)
 
 let of_list l =
-  let buf = Buffer.create (List.length l) in
-  List.iter (Buffer.add_char buf) l;
+  let buf = Buffer.create (CCListLabels.length l) in
+  CCListLabels.iter ~f:(Buffer.add_char buf) l;
   Buffer.contents buf
 
 (*$T
@@ -858,8 +804,9 @@ let of_list l =
 let of_array a =
   init (Array.length a) (fun i -> a.(i))
 
+
 let to_array s =
-  Array.init (String.length s) (fun i -> s.[i])
+  CCArrayLabels.init (String.length s) ~f:(fun i -> s.[i])
 
 let lines_gen s = Split.gen_cpy ~drop:{Split.first=false; last=true} ~by:"\n" s
 
@@ -888,7 +835,7 @@ let concat_gen ~sep g =
   Buffer.contents buf
 
 let unlines l =
-  let len = List.fold_left (fun n s -> n + 1 + String.length s) 0 l in
+  let len = CCListLabels.fold_left ~f:(fun n s -> n + 1 + String.length s) ~init:0 l in
   let buf = Bytes.create len in
   let rec aux_blit i l = match l with
     | [] ->
@@ -933,12 +880,12 @@ let set s i c =
   (try ignore (set "abc" 5 '_'); false with Invalid_argument _ -> true)
 *)
 
-let iter = String.iter
+let iter = StringLabels.iter
 
-let filter_map f s =
+let filter_map ~f s =
   let buf = Buffer.create (String.length s) in
   iter
-    (fun c -> match f c with
+    ~f:(fun c -> match f c with
        | None -> ()
        | Some c' -> Buffer.add_char buf c')
     s;
@@ -949,10 +896,10 @@ let filter_map f s =
      (function 'c' -> None | c -> Some (Char.chr (Char.code c + 1))) "abcde")
 *)
 
-let filter f s =
+let filter ~f s =
   let buf = Buffer.create (String.length s) in
   iter
-    (fun c -> if f c then Buffer.add_char buf c)
+    ~f:(fun c -> if f c then Buffer.add_char buf c)
     s;
   Buffer.contents buf
 
@@ -964,10 +911,10 @@ let filter f s =
   Q.printable_string (fun s -> filter (fun _ -> true) s = s)
 *)
 
-let flat_map ?sep f s =
+let flat_map ?sep ~f s =
   let buf = Buffer.create (String.length s) in
   iteri
-    (fun i c ->
+    ~f:(fun i c ->
        begin match sep with
          | Some _ when i=0 -> ()
          | None -> ()
@@ -979,31 +926,31 @@ let flat_map ?sep f s =
 
 exception MyExit
 
-let for_all p s =
-  try iter (fun c -> if not (p c) then raise MyExit) s; true
+let for_all ~f s =
+  try iter ~f:(fun c -> if not (f c) then raise MyExit) s; true
   with MyExit -> false
 
-let exists p s =
-  try iter (fun c -> if p c then raise MyExit) s; false
+let exists ~f s =
+  try iter ~f:(fun c -> if f c then raise MyExit) s; false
   with MyExit -> true
 
-let drop_while f s =
+let drop_while ~f s =
   let i = ref 0 in
   while !i < length s && f (unsafe_get s !i) do incr i done;
-  if !i > 0 then sub s !i (length s - !i) else s
+  if !i > 0 then sub s ~pos:!i ~len:(length s - !i) else s
 
-let rdrop_while f s =
+let rdrop_while ~f s =
   let i = ref (length s-1) in
   while !i >= 0 && f (unsafe_get s !i) do decr i done;
-  if !i < length s-1 then sub s 0 (!i+1) else s
+  if !i < length s-1 then sub s ~pos:0 ~len:(!i+1) else s
 
 (* notion of whitespace for trim *)
 let is_space_ = function
   | ' ' | '\012' | '\n' | '\r' | '\t' -> true
   | _ -> false
 
-let ltrim s = drop_while is_space_ s
-let rtrim s = rdrop_while is_space_ s
+let ltrim s = drop_while ~f:is_space_ s
+let rtrim s = rdrop_while ~f:is_space_ s
 
 (*$= & ~printer:id
   "abc " (ltrim " abc ")
@@ -1023,23 +970,23 @@ let rtrim s = rdrop_while is_space_ s
     if s'="" then Q.assume_fail() else s'.[String.length s'-1] <> ' ')
 *)
 
-let map2 f s1 s2 =
+let map2 ~f s1 s2 =
   if length s1 <> length s2 then invalid_arg "CCString.map2";
   init (String.length s1) (fun i -> f s1.[i] s2.[i])
 
-let iter2 f s1 s2 =
+let iter2 ~f s1 s2 =
   if length s1 <> length s2 then invalid_arg "CCString.iter2";
   for i = 0 to String.length s1 - 1 do
     f s1.[i] s2.[i]
   done
 
-let iteri2 f s1 s2 =
+let iteri2 ~f s1 s2 =
   if length s1 <> length s2 then invalid_arg "CCString.iteri2";
   for i = 0 to String.length s1 - 1 do
     f i s1.[i] s2.[i]
   done
 
-let fold2 f acc s1 s2 =
+let fold2 ~f ~init:acc s1 s2 =
   if length s1 <> length s2 then invalid_arg "CCString.fold2";
   let rec fold' acc s1 s2 i =
     if i = String.length s1 then acc
@@ -1047,12 +994,12 @@ let fold2 f acc s1 s2 =
   in
   fold' acc s1 s2 0
 
-let for_all2 p s1 s2 =
-  try iter2 (fun c1 c2 -> if not (p c1 c2) then raise MyExit) s1 s2; true
+let for_all2 ~f s1 s2 =
+  try iter2 ~f:(fun c1 c2 -> if not (f c1 c2) then raise MyExit) s1 s2; true
   with MyExit -> false
 
-let exists2 p s1 s2 =
-  try iter2 (fun c1 c2 -> if p c1 c2 then raise MyExit) s1 s2; false
+let exists2 ~f s1 s2 =
+  try iter2 ~f:(fun c1 c2 -> if f c1 c2 then raise MyExit) s1 s2; false
   with MyExit -> true
 
 (** {2 Ascii functions} *)
@@ -1060,7 +1007,7 @@ let exists2 p s1 s2 =
 let equal_caseless s1 s2: bool =
   String.length s1 = String.length s2 &&
   for_all2
-    (fun c1 c2 -> CCChar.equal (CCChar.lowercase_ascii c1) (CCChar.lowercase_ascii c2))
+    ~f:(fun c1 c2 -> CCChar.equal (CCChar.lowercase_ascii c1) (CCChar.lowercase_ascii c2))
     s1 s2
 
 (*$T
@@ -1086,7 +1033,7 @@ let pp fmt s =
 module Sub = struct
   type t = string * int * int
 
-  let make s i ~len =
+  let make s ~pos:i ~len =
     if i<0||len<0||i+len > String.length s then invalid_arg "CCString.Sub.make";
     s,i,len
 
@@ -1108,7 +1055,7 @@ module Sub = struct
 
   let blit (a1,i1,len1) o1 a2 o2 len =
     if o1+len>len1 then invalid_arg "CCString.Sub.blit";
-    blit a1 (i1+o1) a2 o2 len
+    String.blit a1 (i1+o1) a2 o2 len
 
   let fold f acc (s,i,len) =
     let rec fold_rec f acc s i j =

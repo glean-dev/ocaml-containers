@@ -99,7 +99,7 @@
   ()
 *)
 
-type 'a or_error = ('a, string) Result.result
+type 'a or_error = ('a, string) Belt.Result.t
 
 type line_num = int
 type col_num = int
@@ -236,8 +236,8 @@ let failf msg = Printf.ksprintf fail msg
 let parsing s p st ~ok ~err =
   st.branch <- (st.lnum, st.cnum, Some s) :: st.branch;
   p st
-    ~ok:(fun x -> st.branch <- List.tl st.branch; ok x)
-    ~err:(fun e -> st.branch <- List.tl st.branch; err e)
+    ~ok:(fun x -> st.branch <- CCListLabels.tl st.branch; ok x)
+    ~err:(fun e -> st.branch <- CCListLabels.tl st.branch; err e)
 
 let nop _ ~ok ~err:_ = ok()
 
@@ -340,7 +340,7 @@ let string s st ~ok ~err =
   check 0
 
 let rec many_rec : 'a t -> 'a list -> 'a list t = fun p acc st ~ok ~err ->
-  if is_done st then ok(List.rev acc)
+  if is_done st then ok(CCListLabels.rev acc)
   else
     p st
       ~ok:(fun x ->
@@ -348,7 +348,7 @@ let rec many_rec : 'a t -> 'a list -> 'a list t = fun p acc st ~ok ~err ->
         many_rec p (x :: acc) st ~ok
           ~err:(fun _ ->
             backtrack st i;
-            ok(List.rev acc))
+            ok(CCListLabels.rev acc))
       ) ~err
 
 let many : 'a t -> 'a list t
@@ -430,10 +430,10 @@ let parse_exn p st =
     | None -> assert false
     | Some x -> x
 
-let exn_to_err e =Result.Error (Printexc.to_string e)
+let exn_to_err e =Belt.Result.Error (Printexc.to_string e)
 
 let parse p st =
-  try Result.Ok (parse_exn p st)
+  try Belt.Result.Ok (parse_exn p st)
   with e -> exn_to_err e
 
 let parse_string_exn p s = parse_exn p (state_of_string s)
@@ -466,7 +466,7 @@ let parse_file_exn p file =
     raise e
 
 let parse_file p file =
-  try Result.Ok (parse_file_exn p file)
+  try Belt.Result.Ok (parse_file_exn p file)
   with e -> exn_to_err e
 
 module Infix = struct

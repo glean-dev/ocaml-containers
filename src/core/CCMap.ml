@@ -198,7 +198,7 @@ module Make(O : Map.OrderedType) = struct
   let values m yield =
     iter (fun _ v -> yield v) m
 
-  let add_list m l = List.fold_left (fun m (k,v) -> add k v m) m l
+  let add_list m l = CCListLabels.fold_left ~f:(fun m (k,v) -> add k v m) ~init:m l
 
   let of_list l = add_list empty l
 

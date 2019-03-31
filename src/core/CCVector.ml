@@ -164,11 +164,11 @@ let append a b =
 
 (*$T
   let v1 = init 5 (fun i->i) and v2 = init 5 (fun i->i+5) in \
-  append v1 v2; to_list v1 = CCList.(0--9)
+  append v1 v2; to_list v1 = CCCCListLabels.(0--9)
   let empty = create () and v2 = init 5 (fun i->i) in \
-  append empty v2; to_list empty = CCList.(0--4)
+  append empty v2; to_list empty = CCCCListLabels.(0--4)
   let v1 = init 5 (fun i->i) and empty = create () in \
-  append v1 empty; to_list v1 = CCList.(0--4)
+  append v1 empty; to_list v1 = CCCCListLabels.(0--4)
   let v = init 3 (fun i->i) in \
   append v v; to_list v = [0; 1; 2; 0; 1; 2]
   let empty = create () in \
@@ -216,11 +216,11 @@ let append_array a b =
 
 (*$T
   let v1 = init 5 (fun i->i) and v2 = Array.init 5 (fun i->i+5) in \
-  append_array v1 v2; to_list v1 = CCList.(0--9)
+  append_array v1 v2; to_list v1 = CCCCListLabels.(0--9)
   let empty = create () in \
-  append_array empty CCArray.(0--5); to_list empty = CCList.(0--5)
+  append_array empty CCArray.(0--5); to_list empty = CCCCListLabels.(0--5)
   let v1 = init 5 (fun i->i) in \
-  append_array v1 [| |]; to_list v1 = CCList.(0--4)
+  append_array v1 [| |]; to_list v1 = CCCCListLabels.(0--4)
   let empty = create () in \
   append_array empty [| |]; to_list empty = []
 *)
@@ -230,9 +230,9 @@ let append_list a b = match b with
   | x :: _ ->
     (* need to push at least one elem *)
     let len_a = a.size in
-    let len_b = List.length b in
+    let len_b = CCListLabels.length b in
     ensure_with ~init:x a (len_a + len_b);
-    List.iter (push_unsafe_ a) b;
+    CCListLabels.iter ~f:(push_unsafe_ a) b;
     ()
 
 (*$Q
@@ -241,7 +241,7 @@ let append_list a b = match b with
     to_list v = (l1 @ l2))
   Q.(pair (list int)(list int)) (fun (l1,l2) -> \
     let v = of_list l1 in append_list v l2; \
-    length v = List.length l1 + List.length l2)
+    length v = CCListLabels.length l1 + CCListLabels.length l2)
 *)
 
 let rec append_gen a b = match b() with
@@ -254,7 +254,7 @@ let rec append_gen a b = match b() with
     to_list v = (l1 @ l2))
   Q.(pair (list int)(list int)) (fun (l1,l2) -> \
     let v = of_list l1 in append_gen v (Gen.of_list l2); \
-    length v = List.length l1 + List.length l2)
+    length v = CCListLabels.length l1 + CCListLabels.length l2)
 *)
 
 
@@ -317,7 +317,7 @@ let compare cmp v1 v2 =
   Q.(pair (small_list small_int)(small_list small_int)) (fun (l1,l2) ->
     let v1 = of_list l1 in
     let v2 = of_list l2 in
-    compare Pervasives.compare v1 v2 = CCList.compare Pervasives.compare l1 l2)
+    compare Pervasives.compare v1 v2 = CCCCListLabels.compare Pervasives.compare l1 l2)
 *)
 
 exception Empty
@@ -424,7 +424,7 @@ let sort cmp v =
     let v' = copy v in
     sort' Pervasives.compare v';
     let l = to_list v' in
-    List.sort Pervasives.compare l = l
+    CCListLabels.sort Pervasives.compare l = l
   )
 *)
 
@@ -459,7 +459,7 @@ let uniq_sort cmp v =
   Q.(small_list small_int) (fun l ->
     let v = of_list l in
     uniq_sort Pervasives.compare v;
-    to_list v = (CCList.sort_uniq ~cmp:Pervasives.compare l))
+    to_list v = (CCCCListLabels.sort_uniq ~cmp:Pervasives.compare l))
 *)
 
 let iter k v =
@@ -495,7 +495,7 @@ let map f v =
 (*$QR
   Q.(pair (fun1 Observable.int small_int) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    to_list (map f v) = List.map f l)
+    to_list (map f v) = CCListLabels.map f l)
 *)
 
 let map_in_place f v =
@@ -507,7 +507,7 @@ let map_in_place f v =
   Q.(pair (fun1 Observable.int small_int) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
     map_in_place f v;
-    to_list v = List.map f l)
+    to_list v = CCListLabels.map f l)
 *)
 
 
@@ -539,7 +539,7 @@ let filter' p v =
   Q.(pair (fun1 Observable.int bool) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
     filter' f v;
-    to_list v = List.filter f l)
+    to_list v = CCListLabels.filter f l)
 *)
 
 let filter p v =
@@ -561,7 +561,7 @@ let filter p v =
 (*$QR
   Q.(pair (fun1 Observable.int bool) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    to_list (filter f v) = List.filter f l)
+    to_list (filter f v) = CCListLabels.filter f l)
 *)
 
 let fold f acc v =
@@ -580,7 +580,7 @@ let fold f acc v =
 (*$QR
   Q.(pair (fun2 Observable.int Observable.int small_int) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    fold f 0 v = List.fold_left f 0 l)
+    fold f 0 v = CCListLabels.fold_left f 0 l)
 *)
 
 let exists p v =
@@ -593,7 +593,7 @@ let exists p v =
 (*$QR
   Q.(pair (fun1 Observable.int bool) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    exists f v = List.exists f l)
+    exists f v = CCListLabels.exists f l)
 *)
 
 let for_all p v =
@@ -606,7 +606,7 @@ let for_all p v =
 (*$QR
   Q.(pair (fun1 Observable.int bool) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    for_all f v = List.for_all f l)
+    for_all f v = CCListLabels.for_all f l)
 *)
 
 let member ~eq x v =
@@ -635,7 +635,7 @@ let find p v =
 (*$QR
   Q.(pair (fun1 Observable.int bool) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    find f v = CCList.find_pred f l)
+    find f v = CCCCListLabels.find_pred f l)
 *)
 
 let find_map f v =
@@ -667,7 +667,7 @@ let filter_map f v =
 (*$QR
   Q.(pair (fun1 Observable.int (option bool)) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
-    to_list (filter_map f v) = CCList.filter_map f l)
+    to_list (filter_map f v) = CCCCListLabels.filter_map f l)
 *)
 
 (* TODO: free elements *)
@@ -695,7 +695,7 @@ let filter_map_in_place f v =
   Q.(pair (fun1 Observable.int (option small_int)) (small_list small_int)) (fun (Q.Fun (_,f),l) ->
     let v = of_list l in
     filter_map_in_place f v;
-    to_list v = CCList.filter_map f l)
+    to_list v = CCCCListLabels.filter_map f l)
 *)
 
 (* check it frees memory properly *)
@@ -755,7 +755,7 @@ let rev_in_place v =
   Q.(small_list small_int) (fun l ->
     let v = of_list l in
     rev_in_place v;
-    to_list v = List.rev l)
+    to_list v = CCListLabels.rev l)
 *)
 
 let rev v =
@@ -772,7 +772,7 @@ let rev v =
 (*$QR
   Q.(small_list small_int) (fun l ->
     let v = of_list l in
-    to_list (rev v) = List.rev l)
+    to_list (rev v) = CCListLabels.rev l)
 *)
 
 let rev_iter f v =
@@ -788,7 +788,7 @@ let rev_iter f v =
 (*$Q
   Q.(list int) (fun l -> \
     let v = of_list l in \
-    (fun f->rev_iter f v) |> Sequence.to_list = List.rev l)
+    (fun f->rev_iter f v) |> Sequence.to_list = CCListLabels.rev l)
 *)
 
 let size v = v.size
@@ -804,7 +804,7 @@ let of_seq ?(init=create ()) seq =
   init
 
 (*$T
-  of_seq Sequence.(1 -- 10) |> to_list = CCList.(1 -- 10)
+  of_seq Sequence.(1 -- 10) |> to_list = CCCCListLabels.(1 -- 10)
 *)
 
 let to_seq v k = iter k v
@@ -830,9 +830,9 @@ let slice_seq v start len =
     done
 
 (*$T
-  slice_seq (of_list [0;1;2;3;4]) 1 3 |> CCList.of_seq = [1;2;3]
-  slice_seq (of_list [0;1;2;3;4]) 1 4 |> CCList.of_seq = [1;2;3;4]
-  slice_seq (of_list [0;1;2;3;4]) 0 5 |> CCList.of_seq = [0;1;2;3;4]
+  slice_seq (of_list [0;1;2;3;4]) 1 3 |> CCCCListLabels.of_seq = [1;2;3]
+  slice_seq (of_list [0;1;2;3;4]) 1 4 |> CCCCListLabels.of_seq = [1;2;3;4]
+  slice_seq (of_list [0;1;2;3;4]) 0 5 |> CCCCListLabels.of_seq = [0;1;2;3;4]
 *)
 
 let slice v = (v.vec, 0, v.size)
@@ -869,7 +869,7 @@ let (--) i j =
 
 (*$Q
   Q.(pair small_int small_int) (fun (a,b) -> \
-    (a -- b) |> to_list = CCList.(a -- b))
+    (a -- b) |> to_list = CCCCListLabels.(a -- b))
 *)
 
 let (--^) i j =
@@ -880,7 +880,7 @@ let (--^) i j =
 
 (*$Q
   Q.(pair small_int small_int) (fun (a,b) -> \
-    (a --^ b) |> to_list = CCList.(a --^ b))
+    (a --^ b) |> to_list = CCCCListLabels.(a --^ b))
 *)
 
 let of_array a =
@@ -896,19 +896,19 @@ let of_list l = match l with
   | [x] -> return x
   | [x;y] -> {size=2; vec=[| x; y |]}
   | x::_ ->
-    let v = create_with ~capacity:(List.length l) x in
-    List.iter (push_unsafe_ v) l;
+    let v = create_with ~capacity:(CCListLabels.length l) x in
+    CCListLabels.iter ~f:(push_unsafe_ v) l;
     v
 
 (*$T
-  of_list CCList.(1--300_000) |> to_list = CCList.(1--300_000)
+  of_list CCCCListLabels.(1--300_000) |> to_list = CCCCListLabels.(1--300_000)
 *)
 
 let to_array v =
   Array.sub v.vec 0 v.size
 
 let to_list v =
-  List.rev (fold (fun acc x -> x::acc) [] v)
+  CCListLabels.rev (fold (fun acc x -> x::acc) [] v)
 
 let of_gen ?(init=create ()) g =
   let rec aux g = match g() with
