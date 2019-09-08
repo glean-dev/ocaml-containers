@@ -326,14 +326,14 @@ let set_color_default =
 *)
 
 let with_color s pp out x =
-  Format.pp_open_tag out s;
+  pp_open_tag out s;
   pp out x;
-  Format.pp_close_tag out ()
+  pp_close_tag out ()
 
 let with_colorf s out fmt =
-  Format.pp_open_tag out s;
+  pp_open_tag out s;
   Format.kfprintf
-    (fun out -> Format.pp_close_tag out ())
+    (fun out -> pp_close_tag out ())
     out fmt
 
 (* c: whether colors are enabled *)
@@ -350,10 +350,10 @@ let with_color_ksf ~f s fmt =
   let buf = Buffer.create 64 in
   let out = Format.formatter_of_buffer buf in
   if !color_enabled then set_color_tag_handling out;
-  Format.pp_open_tag out s;
+  pp_open_tag out s;
   Format.kfprintf
     (fun out ->
-       Format.pp_close_tag out ();
+       pp_close_tag out ();
        Format.pp_print_flush out ();
        f (Buffer.contents buf))
     out fmt

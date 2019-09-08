@@ -69,7 +69,7 @@ let fold_right2 ~f a1 a2 ~init =
 let foldi ~f ~init a =
   Belt.Array.reduceWithIndexU a init (fun [@bs] acc x i -> f acc i x)
 
-let for_all ~f a = Belt.Array.everyU a (fun [@bs] x -> f x)
+external for_all : 'a t -> f:('a  -> bool[@bs.uncurry]) -> bool = "every" [@@bs.send]
 
 let for_all2 ~f a1 a2 = Belt.Array.every2U a1 a2 (fun [@bs] a b -> f a b)
 
@@ -77,17 +77,15 @@ let get_safe = Belt.Array.get
 
 let init len ~f = Belt.Array.makeByU len (fun [@bs] x -> f x)
 
-let iter ~f a = Belt.Array.forEachU a (fun [@bs] x -> f x)
+external iter : 'a t -> f:('a -> unit [@bs.uncurry]) -> unit = "forEach" [@@bs.send]
 
 let iteri ~f a = Belt.Array.forEachWithIndexU a (fun [@bs] i x -> f i x)
 
-let length = Belt.Array.length
-
-let length = length
+external length : 'a array -> int = "%array_length"
 
 let make = Belt.Array.make
 
-let map ~f a = Belt.Array.map a f
+external map : 'a t -> f:('a  -> 'b [@bs.uncurry]) -> 'b t = "map" [@@bs.send]
 
 let mapi ~f a = Belt.Array.mapWithIndexU a (fun [@bs] i x -> f i x)
 

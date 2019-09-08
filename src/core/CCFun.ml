@@ -13,7 +13,6 @@ let opaque_identity x = x
 (* import standard implementations, if any *)
 
 include Sys
-include Pervasives
 
 let compose f g x = g (f x)
 

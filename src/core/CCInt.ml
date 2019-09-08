@@ -1,6 +1,7 @@
 
 (* This file is free software, part of containers. See file "license" for more details. *)
 
+
 type t = int
 type 'a sequence = ('a -> unit) -> unit
 
@@ -71,35 +72,17 @@ let pow a b =
   pow 0 1 = 0
 *)
 
-module Infix : sig
-  val (=) : t -> t -> bool
-  val (<>) : t -> t -> bool
-  val (<) : t -> t -> bool
-  val (>) : t -> t -> bool
-  val (<=) : t -> t -> bool
-  val (>=) : t -> t -> bool
-  val (--) : t -> t -> t sequence
-  val (--^) : t -> t -> t sequence
-  val (+) : t -> t -> t
-  val (-) : t -> t -> t
-  val (~-) : t -> t
-  val ( * ) : t -> t -> t
-  val (/) : t -> t -> t
-  val ( ** ) : t -> t -> t
-  val (mod) : t -> t -> t
-  val (land) : t -> t -> t
-  val (lor) : t -> t -> t
-  val (lxor) : t -> t -> t
-  val lnot : t -> t
-  val (lsl) : t -> int -> t
-  val (lsr) : t -> int -> t
-  val (asr) : t -> int -> t
-end = struct
+module Infix = struct
   include Pervasives
   let (--) = range
   let (--^) = range'
   let ( ** ) = pow
+  external ( + ) : int -> int -> int = "%addint"
+  external ( - ) : int -> int -> int = "%subint"
+  external ( * ) : int -> int -> int = "%mulint"
+  external ( / ) : int -> int -> int = "%divint"
 end
+
 include Infix
 
 let min : t -> t -> t = Pervasives.min
@@ -196,9 +179,21 @@ let pp fmt = Format.pp_print_int fmt
 let most_significant_bit =
   (-1) lxor ((-1) lsr 1)
 
-let to_string = Belt.Int.toString
+external to_string: int -> string = "String" [@@bs.val]
 
-let of_string = Belt.Int.fromString
+external of_string: string -> (_ [@bs.as 10]) -> int = "parseInt" [@@bs.val]
+
+external to_float: int -> float = "%identity"
+
+external of_float: float -> int = "%intoffloat"
+
+external isNaN : int -> bool = "isNaN" [@@bs.val]
+
+let of_string i =
+  match of_string i with
+  | i when isNaN i -> None
+  | i -> Some i
+
 
 type output = char -> unit
 

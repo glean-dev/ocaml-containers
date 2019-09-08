@@ -317,7 +317,7 @@ let compare cmp v1 v2 =
   Q.(pair (small_list small_int)(small_list small_int)) (fun (l1,l2) ->
     let v1 = of_list l1 in
     let v2 = of_list l2 in
-    compare Pervasives.compare v1 v2 = CCCCListLabels.compare Pervasives.compare l1 l2)
+    compare Pervasives.compare v1 v2 = CCList.compare Pervasives.compare l1 l2)
 *)
 
 exception Empty
@@ -424,7 +424,7 @@ let sort cmp v =
     let v' = copy v in
     sort' Pervasives.compare v';
     let l = to_list v' in
-    CCListLabels.sort Pervasives.compare l = l
+    List.sort Pervasives.compare l = l
   )
 *)
 
@@ -459,7 +459,7 @@ let uniq_sort cmp v =
   Q.(small_list small_int) (fun l ->
     let v = of_list l in
     uniq_sort Pervasives.compare v;
-    to_list v = (CCCCListLabels.sort_uniq ~cmp:Pervasives.compare l))
+    to_list v = (CCList.sort_uniq ~cmp:Pervasives.compare l))
 *)
 
 let iter k v =

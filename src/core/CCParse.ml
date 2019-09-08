@@ -1,7 +1,7 @@
-
 (* This file is free software. See file "license" for more details. *)
 
 (** {1 Very Simple Parser Combinators} *)
+
 
 (*$inject
   module T = struct
@@ -345,7 +345,8 @@ let rec many_rec : 'a t -> 'a list -> 'a list t = fun p acc st ~ok ~err ->
     p st
       ~ok:(fun x ->
         let i = pos st in
-        many_rec p (x :: acc) st ~ok
+        let acc = x :: acc in
+        many_rec p acc st ~ok
           ~err:(fun _ ->
             backtrack st i;
             ok(CCListLabels.rev acc))
@@ -353,6 +354,17 @@ let rec many_rec : 'a t -> 'a list -> 'a list t = fun p acc st ~ok ~err ->
 
 let many : 'a t -> 'a list t
   = fun p st ~ok ~err -> many_rec p [] st ~ok ~err
+
+(*$R
+  let p0 = skip_white *> U.int in
+  let p = (skip_white *> char '(' *> many p0) <* try_ (skip_white <* char ')') in
+  let printer =  CCFormat.(to_string @@ Dump.result  @@ Dump.list int) in
+  assert_equal ~printer
+    (Ok [1;2;3]) (parse_string p "(1 2 3)");
+  assert_equal ~printer
+    (Ok [1;2; -30; 4]) (parse_string p "( 1 2    -30 4 )")
+  *)
+
 
 let many1 : 'a t -> 'a list t =
   fun p st ~ok ~err ->

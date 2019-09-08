@@ -82,24 +82,21 @@ val sign_exn : t -> int
     Note that infinities have defined signs in OCaml.
     @since 0.7 *)
 
-val to_int : t -> int
+external to_int: t -> int = "%intoffloat"
 (** Alias to {!int_of_float}.
     Unspecified if outside of the range of integers. *)
 
-val of_int : int -> t
+external of_int: int -> float = "%identity"
 (** Alias to {!float_of_int}. *)
 
-val to_string : t -> string
+external to_string: float -> string = "String" [@@bs.val]
 
 val of_string_exn : string -> t
 (** Alias to {!float_of_string}.
     @raise Failure in case of failure.
     @since 1.2 *)
 
-val of_string : string -> t
-(** Alias to {!float_of_string}.
-    @deprecated since 1.2, use {!of_string_exn} instead.
-    @raise Failure in case of failure. *)
+val of_string : string -> t option
 
 val equal_precision : epsilon:t -> t -> t -> bool
 (** Equality with allowed error up to a non negative epsilon value. *)
@@ -131,25 +128,13 @@ module Infix : sig
   val (>=) : t -> t -> bool
   (** @since 0.17 *)
 
-  val (+) : t -> t -> t
-  (** Addition.
-      @since 2.1 *)
-
-  val (-) : t -> t -> t
-  (** Subtraction.
-      @since 2.1 *)
-
   val (~-) : t -> t
   (** Unary negation.
       @since 2.1 *)
-
-  val ( * ) : t -> t -> t
-  (** Multiplication.
-      @since 2.1 *)
-
-  val (/) : t -> t -> t
-  (** Division.
-      @since 2.1 *)
+  external ( + ) : float -> float -> float = "%addfloat"
+  external ( - ) : float -> float -> float = "%subfloat"
+  external ( * ) : float -> float -> float = "%mulfloat"
+  external ( / ) : float -> float -> float = "%divfloat"
 end
 
 include module type of Infix

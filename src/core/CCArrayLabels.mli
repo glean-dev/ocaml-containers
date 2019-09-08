@@ -55,7 +55,7 @@ val set : 'a t -> int -> 'a -> unit
     Raise [Invalid_argument "index out of bounds"]
     if [n] is outside the range 0 to [length a - 1]. *)
 
-val length : _ t -> int
+external length : 'a array -> int = "%array_length"
 (** [length a] returns the length (number of elements) of the given array [a]. *)
 
 val fold : f:('a -> 'b -> 'a) -> init:'a -> 'b t -> 'a
@@ -84,7 +84,7 @@ val scan_left : f:('acc -> 'a -> 'acc) -> init:'acc -> 'a t -> 'acc t
     @since 1.2, but only
     @since 2.1 with labels *)
 
-val iter : f:('a -> unit) -> 'a t -> unit
+external iter : 'a t -> f:('a -> unit [@bs.uncurry]) -> unit = "forEach" [@@bs.send]
 (** [iter ~f a] applies function [~f] in turn to all elements of [a].
     It is equivalent to [~f a.(0); ~f a.(1); ...; ~f a.(length a - 1); ()]. *)
 
@@ -191,7 +191,7 @@ val bsearch : cmp:(('a -> 'a -> int) [@keep_label]) -> key:'a -> 'a t ->
     @raise Invalid_argument if the array is found to be unsorted w.r.t [cmp].
     @since 0.13 *)
 
-val for_all : f:('a -> bool) -> 'a t -> bool
+external for_all : 'a t -> f:('a  -> bool[@bs.uncurry]) -> bool = "every" [@@bs.send]
 (** [for_all ~f [|a1; ...; an|]] is [true] if all elements of the array
     satisfy the predicate [~f]. That is, it returns
     [(~f a1) && (~f a2) && ... && (~f an)]. *)
@@ -267,7 +267,7 @@ val pp_i: ?sep:string -> (int -> 'a printer) -> 'a t printer
     The printing function [pp_item] is giving both index and element.
     Elements are separated by [sep] (defaults to ", "). *)
 
-val map : f:('a -> 'b) -> 'a t -> 'b t
+external map : 'a t -> f:('a  -> 'b [@bs.uncurry]) -> 'b t = "map" [@@bs.send]
 (** [map ~f a] applies function [f] to all elements of [a],
     and builds an array with the results returned by [~f]:
     [[| ~f a.(0); ~f a.(1); ...; ~f a.(length a - 1) |]]. *)

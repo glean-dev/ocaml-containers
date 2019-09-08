@@ -46,9 +46,13 @@ val random_range : int -> int -> t random_gen
 
 val pp : t printer
 
-val to_string : t -> string
+external to_string: int -> string = "String" [@@bs.val]
 (** Return the string representation of its argument, in signed decimal.
     @since 0.13 *)
+
+external to_float: int -> float = "%identity"
+
+external of_float: float -> int = "%intoffloat"
 
 val of_string : string -> t option
 (** @since 0.13 *)
@@ -116,15 +120,7 @@ module Infix : sig
   (** Alias to {!range'}.
       @since 1.2 *)
 
-  val (+) : t -> t -> t (** @since 2.1 *)
-
-  val (-) : t -> t -> t (** @since 2.1 *)
-
   val (~-) : t -> t (** @since 2.1 *)
-
-  val ( * ) : t -> t -> t (** @since 2.1 *)
-
-  val (/) : t -> t -> t (** @since 2.1 *)
 
   val ( ** ) : t -> t -> t (** @since 2.4 *)
 
@@ -144,6 +140,13 @@ module Infix : sig
 
   val (asr) : t -> int -> t (** @since 2.1 *)
 
+  external ( + ) : int -> int -> int = "%addint"
+
+  external ( - ) : int -> int -> int = "%subint"
+
+  external ( * ) : int -> int -> int = "%mulint"
+
+  external ( / ) : int -> int -> int = "%divint"
 end
 
 include module type of Infix

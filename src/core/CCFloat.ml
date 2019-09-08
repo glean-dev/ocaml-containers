@@ -1,6 +1,7 @@
 
 (* This file is free software, part of containers. See file "license" for more details. *)
 
+
 type t = float
 type fpclass = Pervasives.fpclass =
   | FP_normal
@@ -17,10 +18,10 @@ module Infix = struct
   let (<=) : t -> t -> bool = Pervasives.(<=)
   let (>=) : t -> t -> bool = Pervasives.(>=)
   let (~-) : t -> t = Pervasives.(~-.)
-  let (+) : t -> t -> t = Pervasives.(+.)
-  let (-) : t -> t -> t = Pervasives.(-.)
-  let ( * ) : t -> t -> t = Pervasives.( *. )
-  let (/) : t -> t -> t = Pervasives.(/.)
+  external ( + ) : float -> float -> float = "%addfloat"
+  external ( - ) : float -> float -> float = "%subfloat"
+  external ( * ) : float -> float -> float = "%mulfloat"
+  external ( / ) : float -> float -> float = "%divfloat"
 end
 include Infix
 
@@ -36,7 +37,7 @@ let max_finite_value = Pervasives.max_float
 
 let epsilon = Pervasives.epsilon_float
 
-let is_nan x = Pervasives.(classify_float x = Pervasives.FP_nan)
+let is_nan x = (Pervasives.(=) (classify_float x) Pervasives.FP_nan)
 
 let add = (+.)
 let sub = (-.)
@@ -101,13 +102,21 @@ let round x = Js.Math.round x
   0. (round 0.)
 *)
 
-let to_int (a:float) = Belt.Float.toInt a
-let of_int (a:int) = Belt.Int.toFloat a
+external to_int: float -> int = "%intoffloat"
+external of_int: int -> float = "%identity"
 
-let to_string (a:float) = Belt.Float.toString a
+external to_string: float -> string = "String" [@@bs.val]
+
 let of_string_exn (a:string) = Pervasives.float_of_string a
-let of_string (a:string) = Pervasives.float_of_string a
 
+external of_string: string -> float = "parseFloat" [@@bs.val]
+
+external is_nan : float -> bool = "isNaN" [@@bs.val]
+
+let of_string i =
+  match (of_string i) with
+  | i when is_nan i -> None
+  | i -> Some i
 
 let random n st = Random.State.float st n
 let random_small = random 100.0

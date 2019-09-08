@@ -5,6 +5,7 @@
 
     We only deal with UTF8 strings as they naturally map to OCaml bytestrings *)
 
+
 type uchar = Uchar.t
 type 'a gen = unit -> 'a option
 type 'a sequence = ('a -> unit) -> unit
